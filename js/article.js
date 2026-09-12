@@ -1078,3 +1078,97 @@ function drawChart2(root) {
 
 drawChart1(document.getElementById("chart-1"));
 drawChart2(document.getElementById("chart-2"));
+initGraphic3(document.querySelector(".graphic-3"));
+
+function initGraphic3(root) {
+  if (!root) return;
+  const shock = root.querySelector(".shock");
+  const line = root.querySelector(".shock-line");
+  const titleEl = shock.querySelector(".shock-title");
+  const subtitleEl = shock.querySelector(".shock-subtitle");
+  const bodyEl = shock.querySelector(".shock-body");
+  const hotspots = [...root.querySelectorAll(".hotspot")];
+
+  // Same copy for now — swap per key when real texts are ready
+  const defaultCopy = {
+    titleHtml: "Economic<br />shock",
+    subtitle: "Freelance demand falls",
+    body: "A downturn reduces her income further.",
+  };
+  const popups = {
+    pen: { ...defaultCopy },
+    car: { ...defaultCopy },
+    gauge: { ...defaultCopy },
+    card: { ...defaultCopy },
+    bar: { ...defaultCopy },
+    case: { ...defaultCopy },
+  };
+
+  const POPUP_OFFSET_PCT = 41.17; // distance from point center to popup top (design)
+
+  const shiftPct = () => {
+    const stage = root.querySelector(".graphic-3-stage");
+    const shiftPx = parseFloat(getComputedStyle(root).getPropertyValue("--g3-shift")) || 0;
+    const h = stage?.clientHeight || 1;
+    return (shiftPx / h) * 100;
+  };
+
+  let showTimer = 0;
+
+  const placeAt = (hotspot) => {
+    const stage = root.querySelector(".graphic-3-stage");
+    const key = hotspot.dataset.key;
+    const copy = popups[key] || defaultCopy;
+    titleEl.innerHTML = copy.titleHtml;
+    subtitleEl.textContent = copy.subtitle;
+    bodyEl.textContent = copy.body;
+
+    const x = Number(hotspot.dataset.x);
+    const y = Number(hotspot.dataset.y) + shiftPct();
+    shock.style.left = `${x}%`;
+    line.style.left = `${x}%`;
+
+    const shockTop = Math.max(2, y - POPUP_OFFSET_PCT);
+    shock.style.top = `${shockTop}%`;
+
+    // Line from point up to the popup's bottom edge
+    void shock.offsetHeight;
+    const stageH = stage.clientHeight || 1;
+    const popupBottomPx = (shockTop / 100) * stageH + shock.offsetHeight;
+    const pointYPx = (y / 100) * stageH;
+    const lineH = Math.max(0, pointYPx - popupBottomPx);
+    line.style.top = `${(popupBottomPx / stageH) * 100}%`;
+    line.style.height = `${(lineH / stageH) * 100}%`;
+  };
+
+  const show = (hotspot) => {
+    clearTimeout(showTimer);
+    const restart = line.classList.contains("is-visible");
+    if (restart) {
+      shock.classList.remove("is-visible");
+      line.classList.remove("is-visible");
+      void line.offsetWidth;
+    }
+    placeAt(hotspot);
+    shock.hidden = false;
+    line.classList.add("is-visible");
+    showTimer = window.setTimeout(() => {
+      shock.classList.add("is-visible");
+    }, restart ? 40 : 0);
+  };
+
+  const hide = () => {
+    clearTimeout(showTimer);
+    shock.classList.remove("is-visible");
+    line.classList.remove("is-visible");
+  };
+
+  hotspots.forEach((hotspot) => {
+    hotspot.addEventListener("mouseenter", () => show(hotspot));
+    hotspot.addEventListener("mouseleave", hide);
+    hotspot.addEventListener("focus", () => show(hotspot));
+    hotspot.addEventListener("blur", hide);
+    hotspot.setAttribute("tabindex", "0");
+    hotspot.setAttribute("role", "button");
+  });
+}
