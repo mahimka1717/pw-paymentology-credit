@@ -16,6 +16,75 @@ function polyline(points) {
   return points.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
+function makeAnnDot(parent, x, y, color, filterId) {
+  const g = svgEl("g", { class: "ann-dot", transform: `translate(${x} ${y})` });
+  g.appendChild(svgEl("circle", { class: "ann-dot__pulse", r: "6", fill: color }));
+  g.appendChild(
+    svgEl("circle", {
+      class: "ann-dot__halo",
+      r: "8",
+      fill: "#fff",
+      filter: `url(#${filterId})`,
+    })
+  );
+  g.appendChild(svgEl("circle", { class: "ann-dot__core", r: "6", fill: color }));
+  parent.appendChild(g);
+  return g;
+}
+
+/** Hover on mouse; tap to open, tap outside to close (Chrome touch emulation + devices). */
+function bindHoverOrTap(targets, { show, hide }) {
+  const list = [...targets];
+  let open = false;
+  let sticky = false;
+
+  const isTarget = (node) =>
+    list.some((el) => el === node || (typeof el.contains === "function" && el.contains(node)));
+
+  list.forEach((el) => {
+    el.addEventListener("pointerenter", (e) => {
+      if (e.pointerType === "touch" || sticky) return;
+      show(el);
+      open = true;
+    });
+    el.addEventListener("pointerleave", (e) => {
+      if (e.pointerType === "touch" || sticky) return;
+      hide();
+      open = false;
+    });
+    el.addEventListener(
+      "pointerup",
+      (e) => {
+        if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+        e.preventDefault();
+        e.stopPropagation();
+        sticky = true;
+        show(el);
+        open = true;
+      },
+      { passive: false }
+    );
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sticky = true;
+      show(el);
+      open = true;
+    });
+  });
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!open) return;
+      if (isTarget(e.target)) return;
+      sticky = false;
+      hide();
+      open = false;
+    },
+    true
+  );
+}
+
 function scaleY(value, min, max, top, bottom) {
   return top + ((max - value) / (max - min)) * (bottom - top);
 }
@@ -36,15 +105,27 @@ function animateOnView(node) {
 }
 
 function drawChart1(root) {
-  const w = 944;
-  const h = 400;
+  const isMobile = window.matchMedia("(max-width: 860px)").matches;
+  const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
+  const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
+  const h = isMobile ? 460 : 400;
   const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
   svg.setAttribute("aria-label", "New credit card originations during COVID-19");
 
-  const plotL = 0;
-  const plotR = 933;
-  const plotT = 76;
-  const plotB = 359;
+  // Tablet: grid = content column; Y labels sit in the left overhang only
+  const yPad = isTablet ? 28 : isMobile ? 20 : 0;
+  const plotL = yPad;
+  const plotR = isMobile ? (isTablet ? w : w - 20) : 933;
+  const plotT = isMobile ? 62 : 76;
+  const plotB = isMobile ? h - 52 : 359;
+  const fs = isMobile ? 8 : 15;
+  const fsX = isMobile ? 11 : 15;
+  const fsSm = isMobile ? 11 : 12;
+  const fsLg = isMobile ? 24 : 30;
+  const fsLegend = isMobile ? 12 : 15;
+  const titleDy = isMobile ? 12 : 18;
+  const lineW = isMobile ? 3 : 2.5;
+  const dotR = isMobile ? 3.5 : 3;
   const yMin = -100;
   const yMax = 20;
   const ticks = [20, 0, -20, -40, -60, -80, -100];
@@ -104,10 +185,10 @@ function drawChart1(root) {
     if (t === 0) gridLine["stroke-dasharray"] = "2 3";
     svg.appendChild(svgEl("line", gridLine));
     const label = svgEl("text", {
-      x: plotL - 10,
-      y: y + 5,
+      x: plotL - (isMobile ? 4 : 8),
+      y: y + 3,
       fill: BLUE,
-      "font-size": 15,
+      "font-size": fs,
       "font-weight": "600",
       "text-anchor": "end",
       "font-family": "Inter, sans-serif",
@@ -118,21 +199,21 @@ function drawChart1(root) {
 
   const axisTitle = svgEl("text", {
     x: plotL,
-    y: 30,
+    y: isMobile ? 12 : 30,
     fill: BLUE,
-    "font-size": 15,
+    "font-size": isMobile ? fsX : fs,
     "font-family": "Inter, sans-serif",
   });
   axisTitle.innerHTML = "";
   const t1 = svgEl("tspan", { x: plotL, dy: 0, "font-weight": "700" });
-  t1.textContent = "Change in number of cards";
-  const t2 = svgEl("tspan", { x: plotL, dy: 18 });
+  t1.textContent = isMobile ? "Change in cards" : "Change in number of cards";
+  const t2 = svgEl("tspan", { x: plotL, dy: titleDy });
   t2.textContent = "(Jan 2020 = 100)";
   axisTitle.append(t1, t2);
   svg.appendChild(axisTitle);
 
-  const m0 = 20.2;
-  const step = 147.4;
+  const m0 = isMobile ? plotL + 8 : 20.2;
+  const step = isMobile ? (plotR - 8 - m0) / 6 : 147.4;
   const xAt = (m) => m0 + m * step;
 
   // 7 month ticks (Jan–Jul): 4 points per month segment → 19 points, equal Δx
@@ -166,7 +247,7 @@ function drawChart1(root) {
     svgEl("line", {
       x1: eventX,
       x2: eventX,
-      y1: 18,
+      y1: isMobile ? plotT : 18,
       y2: frameB,
       stroke: NAVY,
       "stroke-width": 2,
@@ -181,14 +262,14 @@ function drawChart1(root) {
     class: "line-draw",
     points: polyline(ficoPts),
     stroke: PURPLE_SOFT,
-    "stroke-width": 2.5,
+    "stroke-width": lineW,
     pathLength: "1",
   });
   const allLine = svgEl("polyline", {
     class: "line-draw",
     points: polyline(allPts),
     stroke: PURPLE,
-    "stroke-width": 2.5,
+    "stroke-width": lineW,
     pathLength: "1",
   });
   ficoG.appendChild(ficoLine);
@@ -201,7 +282,7 @@ function drawChart1(root) {
         class: "dot",
         cx: x,
         cy: y,
-        r: 3,
+        r: dotR,
         fill: PURPLE_SOFT,
       })
     );
@@ -213,7 +294,7 @@ function drawChart1(root) {
         class: "dot",
         cx: x,
         cy: y,
-        r: 3,
+        r: dotR,
         fill: PURPLE,
       })
     );
@@ -224,29 +305,13 @@ function drawChart1(root) {
   const seriesOn = { all: true, fico: true };
   const dots = allPts.map((p, i) => [p, ficoPts[i]]);
   const annHotspots = [];
+  const annDots = [];
   annIdx.forEach((i) => {
     const [a, f] = dots[i];
     const hotspot = svgEl("g", { class: "ann-hotspot" });
-    allG.appendChild(
-      svgEl("circle", {
-        cx: a[0],
-        cy: a[1],
-        r: 8,
-        fill: "#fff",
-        filter: "url(#dot-shadow)",
-      })
-    );
-    allG.appendChild(svgEl("circle", { cx: a[0], cy: a[1], r: 6, fill: PURPLE }));
-    ficoG.appendChild(
-      svgEl("circle", {
-        cx: f[0],
-        cy: f[1],
-        r: 8,
-        fill: "#fff",
-        filter: "url(#dot-shadow)",
-      })
-    );
-    ficoG.appendChild(svgEl("circle", { cx: f[0], cy: f[1], r: 6, fill: PURPLE_SOFT }));
+    const allDot = makeAnnDot(allG, a[0], a[1], PURPLE, "dot-shadow");
+    const ficoDot = makeAnnDot(ficoG, f[0], f[1], PURPLE_SOFT, "dot-shadow");
+    annDots.push({ all: allDot, fico: ficoDot });
     const minY = Math.min(a[1], f[1]);
     const maxY = Math.max(a[1], f[1]);
     hotspot.appendChild(
@@ -274,52 +339,58 @@ function drawChart1(root) {
   months.forEach(([i, label]) => {
     const x = xAt(i);
     svg.appendChild(
-      svgEl("circle", { cx: x, cy: frameB, r: 3, fill: BLUE })
+      svgEl("circle", { cx: x, cy: frameB, r: isMobile ? 3.5 : 3, fill: BLUE })
     );
     const text = svgEl("text", {
       x,
-      y: frameB + 20,
+      y: frameB + (isMobile ? 18 : 20),
       fill: BLUE,
-      "font-size": 15,
+      "font-size": fsX,
       "font-weight": "600",
       "text-anchor": "middle",
       "font-family": "Inter, sans-serif",
     });
-    text.textContent = label;
+    text.textContent = isMobile && i === 0 ? "Jan" : label;
     svg.appendChild(text);
   });
 
+  const evX = isMobile ? eventX + 10 : eventX + 8;
+  const evAnchor = "start";
   const ev1 = svgEl("text", {
-    x: eventX + 8,
-    y: 30,
+    x: evX,
+    y: isMobile ? plotT + 10 : 30,
     fill: INK,
-    "font-size": 15,
+    "font-size": fsX,
     "font-family": "Inter, sans-serif",
     "font-weight": "700",
+    "text-anchor": evAnchor,
+    ...(isMobile ? { "dominant-baseline": "hanging" } : {}),
   });
-  ev1.textContent = "15 March 2020";
+  ev1.textContent = isMobile ? "15 Mar 2020" : "15 March 2020";
   svg.appendChild(ev1);
   const ev2 = svgEl("text", {
-    x: eventX + 8,
-    y: 48,
+    x: evX,
+    y: isMobile ? plotT + 10 + fsX + 2 : 48,
     fill: INK,
-    "font-size": 15,
+    "font-size": fsX,
     "font-family": "Inter, sans-serif",
+    "text-anchor": evAnchor,
+    ...(isMobile ? { "dominant-baseline": "hanging" } : {}),
   });
-  ev2.textContent = "US national emergency declared";
+  ev2.textContent = isMobile ? "US emergency" : "US national emergency declared";
   svg.appendChild(ev2);
 
   const g = svgEl("g", { class: "callout-box callout-box--hover" });
   const panel = svgEl("g", { class: "callout-panel" });
-  let calloutW = 310;
-  const cx = 477;
+  let calloutW = isMobile ? 250 : 310;
+  const cx = isMobile ? plotL + 4 : 477;
   const cy = plotT;
-  const padX = 22;
+  const padX = isMobile ? 16 : 22;
   const calloutRect = svgEl("rect", {
     x: cx,
     y: cy,
     width: calloutW,
-    height: 161,
+    height: isMobile ? 148 : 161,
     rx: 12,
     fill: NAVY,
   });
@@ -333,60 +404,81 @@ function drawChart1(root) {
   const monthLabel = add(
     {
       x: cx + calloutW / 2,
-      y: cy + 24,
+      y: cy + (isMobile ? 22 : 24),
       fill: "#fff",
-      "font-size": 15,
+      "font-size": isMobile ? 15 : fs,
       "font-weight": 600,
       "font-family": "Inter, sans-serif",
       "text-anchor": "middle",
-      style: "line-height: 15px",
+      style: `line-height: ${isMobile ? 15 : fs}px`,
     },
     "April"
   );
   const pct60 = add(
     {
       x: cx + padX,
-      y: cy + 60,
+      y: cy + (isMobile ? 54 : 60),
       fill: PURPLE,
-      "font-size": 30,
+      "font-size": fsLg,
       "font-weight": 900,
       "font-family": '"PP Monument Extended", sans-serif',
-      style: "line-height: 30px",
+      style: `line-height: ${fsLg}px`,
     },
     "60%"
   );
   const rightAttrs = {
-    "font-size": 12,
+    "font-size": fsSm,
     "font-family": "Inter, sans-serif",
     "letter-spacing": "-0.05em",
-    style: "line-height: 12px",
+    style: `line-height: ${fsSm}px`,
   };
   const rightTexts = [
-    add({ ...rightAttrs, x: cx + padX, y: cy + 48, fill: PURPLE, "font-weight": 600 }, "fewer new cards"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + 62, fill: PURPLE, "font-weight": 400 }, "versus Jan 2020"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 44 : 48), fill: PURPLE, "font-weight": 600 }, "fewer new cards"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 56 : 62), fill: PURPLE, "font-weight": 400 }, "versus Jan 2020"),
   ];
   const pct90 = add(
     {
       x: cx + padX,
-      y: cy + 102,
+      y: cy + (isMobile ? 94 : 102),
       fill: PURPLE_SOFT,
-      "font-size": 30,
+      "font-size": fsLg,
       "font-weight": 900,
       "font-family": '"PP Monument Extended", sans-serif',
-      style: "line-height: 30px",
+      style: `line-height: ${fsLg}px`,
     },
     "90%"
   );
   rightTexts.push(
-    add({ ...rightAttrs, x: cx + padX, y: cy + 102, fill: PURPLE_SOFT, "font-weight": 600 }, "fewer new cards"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + 131, fill: PURPLE_SOFT, "font-weight": 400 }, "For the riskiest borrowers"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + 147, fill: PURPLE_SOFT, "font-weight": 400 }, "the market almost froze")
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 94 : 102), fill: PURPLE_SOFT, "font-weight": 600 }, "fewer new cards"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 120 : 131), fill: PURPLE_SOFT, "font-weight": 400 }, "For the riskiest borrowers"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 134 : 147), fill: PURPLE_SOFT, "font-weight": 400 }, "the market almost froze")
   );
   g.appendChild(panel);
   svg.appendChild(g);
 
   const alignPopup = (name, isJuly = false) => {
     monthLabel.textContent = name;
+    if (isMobile) {
+      // No month↔body alignment on mobile — month centered, body stays by percents
+      const maxRightW = Math.max(...rightTexts.map((t) => t.getComputedTextLength()));
+      const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
+      const minGap = 16;
+      calloutW = Math.max(
+        padX * 2 + Math.max(monthLabel.getComputedTextLength(), percentW + minGap + maxRightW),
+        200
+      );
+      calloutRect.setAttribute("width", calloutW);
+      monthLabel.setAttribute("x", cx + calloutW / 2);
+      monthLabel.setAttribute("text-anchor", "middle");
+      rightTexts.forEach((t) => t.setAttribute("x", cx + padX + percentW + minGap));
+      // July → right edge; April → same relative spot as desktop (not flush left)
+      let targetLeft = isJuly
+        ? plotR - calloutW
+        : plotL + Math.round((477 / 933) * (plotR - plotL));
+      targetLeft = Math.max(plotL, Math.min(targetLeft, plotR - calloutW));
+      panel.setAttribute("transform", `translate(${targetLeft - cx}, 0)`);
+      return;
+    }
     const monthW = monthLabel.getComputedTextLength();
     const maxRightW = Math.max(...rightTexts.map((t) => t.getComputedTextLength()));
     const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
@@ -404,17 +496,34 @@ function drawChart1(root) {
     panel.setAttribute("transform", isJuly ? `translate(${plotR - calloutW - cx}, 0)` : "");
   };
 
-  annHotspots.forEach((hotspot, i) => {
-    hotspot.addEventListener("mouseenter", () => {
-      if (!seriesOn.all && !seriesOn.fico) return;
-      alignPopup(i === 0 ? "April" : "July", i === 1);
-      g.classList.add("is-visible");
-      annGuides[i].classList.add("is-visible");
+  const clearAnnPulse = (pair) => {
+    pair.all.classList.remove("is-pulsing");
+    pair.fico.classList.remove("is-pulsing");
+  };
+
+  const showAnn = (i) => {
+    if (!seriesOn.all && !seriesOn.fico) return;
+    annHotspots.forEach((_, j) => {
+      annGuides[j].classList.remove("is-visible");
+      clearAnnPulse(annDots[j]);
     });
-    hotspot.addEventListener("mouseleave", () => {
-      g.classList.remove("is-visible");
-      annGuides[i].classList.remove("is-visible");
-    });
+    alignPopup(i === 0 ? "April" : "July", i === 1);
+    g.classList.add("is-visible");
+    annGuides[i].classList.add("is-visible");
+    const pair = annDots[i];
+    if (seriesOn.all) pair.all.classList.add("is-pulsing");
+    if (seriesOn.fico) pair.fico.classList.add("is-pulsing");
+  };
+
+  const hideAnn = () => {
+    g.classList.remove("is-visible");
+    annGuides.forEach((guide) => guide.classList.remove("is-visible"));
+    annDots.forEach(clearAnnPulse);
+  };
+
+  bindHoverOrTap(annHotspots, {
+    show: (el) => showAnn(annHotspots.indexOf(el)),
+    hide: hideAnn,
   });
 
   const legendRight = plotR;
@@ -430,13 +539,13 @@ function drawChart1(root) {
     tabindex: "0",
     "aria-pressed": "true",
   });
-  const legendRow1Y = 26;
-  const legendRow2Y = 46;
+  const legendRow1Y = isMobile ? 14 : 26;
+  const legendRow2Y = isMobile ? 34 : 46;
   const l1 = svgEl("text", {
     x: 0,
     y: legendRow1Y,
     fill: PURPLE,
-    "font-size": 15,
+    "font-size": fsLegend,
     "font-family": "Inter, sans-serif",
     "font-weight": "700",
     "dominant-baseline": "central",
@@ -447,12 +556,12 @@ function drawChart1(root) {
     x: 0,
     y: legendRow2Y,
     fill: PURPLE_SOFT,
-    "font-size": 15,
+    "font-size": fsLegend,
     "font-family": "Inter, sans-serif",
     "font-weight": "700",
     "dominant-baseline": "central",
   });
-  l2.textContent = "FICO <580 (highest-risk)";
+  l2.textContent = isMobile ? "FICO <580" : "FICO <580 (highest-risk)";
   legendFico.appendChild(l2);
   svg.append(legendAll, legendFico);
 
@@ -508,6 +617,9 @@ function drawChart1(root) {
     layer.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
+    annDots.forEach((pair) => {
+      if (!on) pair[key].classList.remove("is-pulsing");
+    });
     if (!on) {
       g.classList.remove("is-visible");
       annGuides.forEach((guide) => guide.classList.remove("is-visible"));
@@ -531,9 +643,21 @@ function drawChart1(root) {
 }
 
 function drawChart2(root) {
-  const w = 944;
-  const h = 420;
-  const pad = { l: 0, r: 12, t: 56, b: 56 };
+  const isMobile = window.matchMedia("(max-width: 860px)").matches;
+  const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
+  const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
+  const h = isMobile ? 460 : 420;
+  const pad = isTablet
+    ? { l: 28, r: 28, t: 62, b: 56 }
+    : isMobile
+      ? { l: 20, r: 20, t: 62, b: 56 }
+      : { l: 0, r: 12, t: 56, b: 56 };
+  const fs = isMobile ? 8 : 15;
+  const fsSm = isMobile ? 11 : 12;
+  const fsPct = isMobile ? 10 : 20;
+  const fsLegend = isMobile ? 12 : 13;
+  const lineW = isMobile ? 3 : 2.5;
+  const dotR = isMobile ? 3.5 : 3;
   const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
   svg.setAttribute("aria-label", "European credit acceptance and application rates");
 
@@ -561,8 +685,9 @@ function drawChart2(root) {
   const plotR = w - pad.r;
   const plotT = pad.t;
   const plotB = h - pad.b;
-  const innerL = plotL + 20;
-  const innerR = plotR - 20;
+  const innerPad = isMobile ? 0 : 20;
+  const innerL = plotL + innerPad;
+  const innerR = plotR - innerPad;
   const n = 12;
   const groupW = (innerR - innerL) / n;
   const cxAt = (i) => innerL + (i + 0.5) * groupW;
@@ -611,14 +736,14 @@ function drawChart2(root) {
       })
     );
     const left = svgEl("text", {
-      x: plotL - 8,
-      y: y + 4,
+      x: plotL - (isMobile ? 4 : 8),
+      y: y + 3,
       fill: PURPLE,
-      "font-size": 15,
+      "font-size": fs,
       "font-weight": "500",
       "text-anchor": "end",
       "font-family": "Inter, sans-serif",
-      style: "line-height: 15px",
+      style: `line-height: ${fs}px`,
     });
     left.textContent = String(t);
     leftAxisG.appendChild(left);
@@ -626,13 +751,14 @@ function drawChart2(root) {
   [0, 5, 10, 15, 20, 25].forEach((t) => {
     const y = yR(t);
     const right = svgEl("text", {
-      x: plotR + 10,
-      y: y + 4,
+      x: plotR + (isMobile ? 4 : 10),
+      y: y + 3,
       fill: PINK,
-      "font-size": 15,
+      "font-size": fs,
       "font-weight": "500",
+      "text-anchor": "start",
       "font-family": "Inter, sans-serif",
-      style: "line-height: 15px",
+      style: `line-height: ${fs}px`,
     });
     right.textContent = String(t);
     rightAxisG.appendChild(right);
@@ -690,14 +816,14 @@ function drawChart2(root) {
     class: "line-draw",
     points: polyline(applyPts),
     stroke: PINK,
-    "stroke-width": 2.5,
+    "stroke-width": lineW,
     pathLength: "1",
   });
   const acceptLine = svgEl("polyline", {
     class: "line-draw",
     points: polyline(acceptPts),
     stroke: PURPLE,
-    "stroke-width": 2.5,
+    "stroke-width": lineW,
     pathLength: "1",
   });
   applyG.appendChild(applyLine);
@@ -705,23 +831,23 @@ function drawChart2(root) {
 
   applyPts.forEach(([x, y], i) => {
     if (labeledB[i]) return;
-    applyG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: 3, fill: PINK }));
+    applyG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PINK }));
   });
   acceptPts.forEach(([x, y], i) => {
     if (labeledA[i]) return;
-    acceptG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: 3, fill: PURPLE }));
+    acceptG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PURPLE }));
   });
 
   svg.append(applyG, acceptG);
 
-  const calloutPad = 22;
-  let calloutW = 200;
+  const calloutPad = isMobile ? 16 : 22;
+  let calloutW = isMobile ? 180 : 200;
   const g = svgEl("g", { class: "callout-box callout-box--hover" });
   const panel = svgEl("g", { class: "callout-panel" });
-  const titleY = calloutPad + 15; // ~22px above 20px caps
-  const body1Y = titleY + 24;
-  const body2Y = body1Y + 22;
-  const lastBaseline = body2Y + 12;
+  const titleY = calloutPad + (isMobile ? 13 : 15);
+  const body1Y = titleY + (isMobile ? 20 : 24);
+  const body2Y = body1Y + (isMobile ? 18 : 22);
+  const lastBaseline = body2Y + (isMobile ? 11 : 12);
   const calloutH = lastBaseline + calloutPad;
   const calloutRect = svgEl("rect", {
     x: 0,
@@ -743,10 +869,10 @@ function drawChart2(root) {
       x: calloutPad,
       y: titleY,
       fill: "#fff",
-      "font-size": 20,
+      "font-size": isMobile ? 16 : 20,
       "font-weight": 600,
       "font-family": "Inter, sans-serif",
-      style: "line-height: 20px",
+      style: `line-height: ${isMobile ? 16 : 20}px`,
     },
     "Q4 2020"
   );
@@ -755,10 +881,10 @@ function drawChart2(root) {
       x: calloutPad,
       y: body1Y,
       fill: PURPLE,
-      "font-size": 12,
+      "font-size": fsSm,
       "font-family": "Inter, sans-serif",
       "letter-spacing": "-0.05em",
-      style: "line-height: 12px",
+      style: `line-height: ${fsSm}px`,
     },
     "Second lockdowns across Europe"
   );
@@ -766,14 +892,14 @@ function drawChart2(root) {
     x: calloutPad,
     y: body2Y,
     fill: PURPLE_SOFT,
-    "font-size": 12,
+    "font-size": fsSm,
     "font-family": "Inter, sans-serif",
     "letter-spacing": "-0.05em",
-    style: "line-height: 12px",
+    style: `line-height: ${fsSm}px`,
   });
   const body2a = svgEl("tspan", { x: calloutPad, dy: 0 });
   body2a.textContent = "A further decline in acceptance";
-  const body2b = svgEl("tspan", { x: calloutPad, dy: 12 });
+  const body2b = svgEl("tspan", { x: calloutPad, dy: fsSm });
   body2b.textContent = "to 66.4%";
   body2.append(body2a, body2b);
   panel.appendChild(body2);
@@ -834,90 +960,102 @@ function drawChart2(root) {
   };
 
   const seriesOn = { accept: true, apply: true };
+  const chart2Hotspots = [];
 
   activeIdx.forEach((i, gi) => {
     const hotspot = svgEl("g", { class: "ann-hotspot" });
-    const pts = [];
+    const pulseDots = [];
     if (labeledA[i]) {
       const [x, y] = acceptPts[i];
-      pts.push([x, y]);
-      acceptG.appendChild(
-        svgEl("circle", { cx: x, cy: y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
-      );
-      acceptG.appendChild(svgEl("circle", { cx: x, cy: y, r: 6, fill: PURPLE }));
+      pulseDots.push({ key: "accept", el: makeAnnDot(acceptG, x, y, PURPLE, "dot-shadow-2") });
       const t = svgEl("text", {
         x,
-        y: y - 18,
+        y: y - (isMobile ? 14 : 18),
         fill: PURPLE,
-        "font-size": 20,
+        "font-size": fsPct,
         "font-weight": 900,
         "font-family": '"PP Monument Extended", sans-serif',
         "text-anchor": "middle",
-        style: "line-height: 20px",
+        style: `line-height: ${fsPct}px`,
+        ...(isMobile
+          ? { stroke: "#fff", "stroke-width": 1, "paint-order": "stroke fill" }
+          : {}),
       });
       t.textContent = labeledA[i];
       acceptG.appendChild(t);
     }
     if (labeledB[i]) {
       const [x, y] = applyPts[i];
-      pts.push([x, y]);
-      applyG.appendChild(
-        svgEl("circle", { cx: x, cy: y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
-      );
-      applyG.appendChild(svgEl("circle", { cx: x, cy: y, r: 6, fill: PINK }));
+      pulseDots.push({ key: "apply", el: makeAnnDot(applyG, x, y, PINK, "dot-shadow-2") });
       const t = svgEl("text", {
-        x: i === 2 ? x - 14 : i === 9 ? x + 19 : i === 11 ? x + 23 : x,
-        y: i === 2 ? y + 7 : y + 32,
+        x: i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
+        y: i === 2 ? y + 7 : y + (isMobile ? 26 : 32),
         fill: PINK,
-        "font-size": 20,
+        "font-size": fsPct,
         "font-weight": 900,
         "font-family": '"PP Monument Extended", sans-serif',
         "text-anchor": i === 2 ? "end" : "middle",
-        style: "line-height: 20px",
+        style: `line-height: ${fsPct}px`,
+        ...(isMobile
+          ? { stroke: "#fff", "stroke-width": 1, "paint-order": "stroke fill" }
+          : {}),
       });
       t.textContent = labeledB[i];
       applyG.appendChild(t);
     }
-    const xs = pts.map((p) => p[0]);
-    const ys = pts.map((p) => p[1]);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minY = Math.min(...ys);
-    const maxY = Math.max(...ys);
-    const hitTop = labeledA[i] ? minY - 28 : minY - 12;
-    const hitBottom = labeledB[i] && i !== 2 ? maxY + 36 : maxY + 12;
-    const hitLeft = i === 2 && labeledB[i] ? minX - 56 : minX - 18;
-    const hitRight = (i === 9 || i === 11) && labeledB[i] ? maxX + 50 : maxX + 18;
+    const cx = cxAt(i);
     hotspot.appendChild(
       svgEl("rect", {
-        x: hitLeft,
-        y: hitTop,
-        width: hitRight - hitLeft,
-        height: hitBottom - hitTop,
+        x: cx - groupW / 2,
+        y: plotT,
+        width: groupW,
+        height: plotB - plotT,
         fill: "transparent",
       })
     );
     svg.appendChild(hotspot);
-    hotspot.addEventListener("mouseenter", () => {
-      const hasAccept = seriesOn.accept && labeledA[i];
-      const hasApply = seriesOn.apply && labeledB[i];
-      if (!hasAccept && !hasApply) return;
-      annGuides[gi].classList.add("is-visible");
-      if (hasAccept) {
-        showCalloutAt(i);
-      } else {
-        const x = cxAt(i);
-        topMarkerHalo.setAttribute("cx", x);
-        topMarkerCore.setAttribute("cx", x);
-        topMarkerHalo.classList.add("is-visible");
-        topMarkerCore.classList.add("is-visible");
-      }
-    });
-    hotspot.addEventListener("mouseleave", () => {
-      annGuides[gi].classList.remove("is-visible");
-      hideCallout();
-    });
+    chart2Hotspots.push({ el: hotspot, i, gi, pulseDots });
   });
+
+  const hideChart2Ann = () => {
+    chart2Hotspots.forEach(({ gi, pulseDots }) => {
+      annGuides[gi].classList.remove("is-visible");
+      pulseDots.forEach(({ el }) => el.classList.remove("is-pulsing"));
+    });
+    hideCallout();
+  };
+
+  const showChart2Ann = (item) => {
+    const { i, gi, pulseDots } = item;
+    const hasAccept = seriesOn.accept && labeledA[i];
+    const hasApply = seriesOn.apply && labeledB[i];
+    if (!hasAccept && !hasApply) return;
+    hideChart2Ann();
+    annGuides[gi].classList.add("is-visible");
+    pulseDots.forEach(({ key, el }) => {
+      if (seriesOn[key]) el.classList.add("is-pulsing");
+    });
+    if (hasAccept) {
+      showCalloutAt(i);
+    } else {
+      const x = cxAt(i);
+      topMarkerHalo.setAttribute("cx", x);
+      topMarkerCore.setAttribute("cx", x);
+      topMarkerHalo.classList.add("is-visible");
+      topMarkerCore.classList.add("is-visible");
+    }
+  };
+
+  bindHoverOrTap(
+    chart2Hotspots.map((h) => h.el),
+    {
+      show: (el) => {
+        const item = chart2Hotspots.find((h) => h.el === el);
+        if (item) showChart2Ann(item);
+      },
+      hide: hideChart2Ann,
+    }
+  );
 
   const axisX = "#414d97";
 
@@ -933,115 +1071,208 @@ function drawChart2(root) {
   );
 
   const labels = quarterLabels;
+  const qFs = isMobile ? 11 : 15;
   labels.forEach(([q, y], i) => {
     const x = cxAt(i);
-    svg.appendChild(svgEl("circle", { cx: x, cy: plotB, r: 3, fill: axisX }));
+    svg.appendChild(svgEl("circle", { cx: x, cy: plotB, r: isMobile ? 3.5 : 3, fill: axisX }));
     const a = svgEl("text", {
       x,
-      y: plotB + 20,
+      y: plotB + (isMobile ? 18 : 20),
       fill: axisX,
-      "font-size": 15,
+      "font-size": qFs,
       "font-weight": "500",
       "text-anchor": "middle",
       "font-family": "Inter, sans-serif",
-      style: "line-height: 15px",
+      style: `line-height: ${qFs}px`,
     });
     a.textContent = q;
-    const b = svgEl("text", {
-      x,
-      y: plotB + 34,
-      fill: axisX,
-      "font-size": 15,
-      "font-weight": "500",
-      "text-anchor": "middle",
-      "font-family": "Inter, sans-serif",
-      style: "line-height: 15px",
-    });
-    b.textContent = y;
-    svg.append(a, b);
+    svg.appendChild(a);
+    if (!isMobile || i % 4 === 0) {
+      const b = svgEl("text", {
+        x,
+        y: plotB + (isMobile ? 30 : 34),
+        fill: axisX,
+        "font-size": qFs,
+        "font-weight": "500",
+        "text-anchor": "middle",
+        "font-family": "Inter, sans-serif",
+        style: `line-height: ${qFs}px`,
+      });
+      b.textContent = y;
+      svg.appendChild(b);
+    }
   });
 
-  const legendCy = 18;
-  const leftYLabelRight = plotL - 8;
-  const rightYLabelLeft = plotR + 10;
   const legendDotR = 8;
-  const legendLCx = leftYLabelRight - legendDotR;
-  const legendRCx = rightYLabelLeft + legendDotR;
+  let legendAccept;
+  let legendApply;
 
-  const legendAccept = svgEl("g", {
-    class: "chart-legend chart-legend--accept",
-    role: "button",
-    tabindex: "0",
-    "aria-pressed": "true",
-  });
-  legendAccept.appendChild(
-    svgEl("circle", { cx: legendLCx, cy: legendCy, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
-  );
-  const legendAcceptCore = svgEl("circle", {
-    class: "chart-legend__core",
-    cx: legendLCx,
-    cy: legendCy,
-    r: 6,
-    fill: PURPLE,
-  });
-  legendAccept.appendChild(legendAcceptCore);
-  const la = svgEl("text", {
-    x: plotL,
-    y: 22,
-    fill: PURPLE,
-    "font-size": 13,
-    "font-weight": "700",
-    "font-family": "Inter, sans-serif",
-  });
-  la.textContent = "Credit acceptance rate (%)";
-  legendAccept.appendChild(la);
-  legendAccept.appendChild(
-    svgEl("rect", {
-      x: legendLCx - 10,
-      y: 4,
-      width: 210,
-      height: 28,
-      fill: "transparent",
-    })
-  );
+  if (isMobile) {
+    const legendLCx = plotL + legendDotR;
+    const legendTextX = legendLCx + legendDotR + 8;
+    const row1Y = 14;
+    const row2Y = 34;
+    const hitW = 180;
 
-  const legendApply = svgEl("g", {
-    class: "chart-legend chart-legend--apply",
-    role: "button",
-    tabindex: "0",
-    "aria-pressed": "true",
-  });
-  const lb = svgEl("text", {
-    x: plotR,
-    y: 22,
-    fill: PINK,
-    "font-size": 13,
-    "font-weight": "700",
-    "text-anchor": "end",
-    "font-family": "Inter, sans-serif",
-  });
-  lb.textContent = "Credit application rate (%)";
-  legendApply.appendChild(lb);
-  legendApply.appendChild(
-    svgEl("circle", { cx: legendRCx, cy: legendCy, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
-  );
-  const legendApplyCore = svgEl("circle", {
-    class: "chart-legend__core",
-    cx: legendRCx,
-    cy: legendCy,
-    r: 6,
-    fill: PINK,
-  });
-  legendApply.appendChild(legendApplyCore);
-  legendApply.appendChild(
-    svgEl("rect", {
-      x: plotR - 220,
-      y: 4,
-      width: legendRCx - (plotR - 220) + 10,
-      height: 28,
-      fill: "transparent",
-    })
-  );
+    legendAccept = svgEl("g", {
+      class: "chart-legend chart-legend--accept",
+      role: "button",
+      tabindex: "0",
+      "aria-pressed": "true",
+    });
+    legendAccept.appendChild(
+      svgEl("circle", { cx: legendLCx, cy: row1Y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
+    );
+    legendAccept.appendChild(
+      svgEl("circle", {
+        class: "chart-legend__core",
+        cx: legendLCx,
+        cy: row1Y,
+        r: 6,
+        fill: PURPLE,
+      })
+    );
+    const la = svgEl("text", {
+      x: legendTextX,
+      y: row1Y,
+      fill: PURPLE,
+      "font-size": fsLegend,
+      "font-weight": "700",
+      "font-family": "Inter, sans-serif",
+      "dominant-baseline": "central",
+    });
+    la.textContent = "Acceptance rate (%)";
+    legendAccept.appendChild(la);
+    legendAccept.appendChild(
+      svgEl("rect", {
+        x: legendLCx - 10,
+        y: row1Y - 12,
+        width: hitW,
+        height: 24,
+        fill: "transparent",
+      })
+    );
+
+    legendApply = svgEl("g", {
+      class: "chart-legend chart-legend--apply",
+      role: "button",
+      tabindex: "0",
+      "aria-pressed": "true",
+    });
+    legendApply.appendChild(
+      svgEl("circle", { cx: legendLCx, cy: row2Y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
+    );
+    legendApply.appendChild(
+      svgEl("circle", {
+        class: "chart-legend__core",
+        cx: legendLCx,
+        cy: row2Y,
+        r: 6,
+        fill: PINK,
+      })
+    );
+    const lb = svgEl("text", {
+      x: legendTextX,
+      y: row2Y,
+      fill: PINK,
+      "font-size": fsLegend,
+      "font-weight": "700",
+      "font-family": "Inter, sans-serif",
+      "dominant-baseline": "central",
+    });
+    lb.textContent = "Application rate (%)";
+    legendApply.appendChild(lb);
+    legendApply.appendChild(
+      svgEl("rect", {
+        x: legendLCx - 10,
+        y: row2Y - 12,
+        width: hitW,
+        height: 24,
+        fill: "transparent",
+      })
+    );
+  } else {
+    const legendCy = 18;
+    const legendLCx = plotL - 8 - legendDotR;
+    const legendRCx = plotR + 8 + legendDotR;
+
+    legendAccept = svgEl("g", {
+      class: "chart-legend chart-legend--accept",
+      role: "button",
+      tabindex: "0",
+      "aria-pressed": "true",
+    });
+    legendAccept.appendChild(
+      svgEl("circle", { cx: legendLCx, cy: legendCy, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
+    );
+    legendAccept.appendChild(
+      svgEl("circle", {
+        class: "chart-legend__core",
+        cx: legendLCx,
+        cy: legendCy,
+        r: 6,
+        fill: PURPLE,
+      })
+    );
+    const la = svgEl("text", {
+      x: plotL,
+      y: 22,
+      fill: PURPLE,
+      "font-size": fsLegend,
+      "font-weight": "700",
+      "font-family": "Inter, sans-serif",
+    });
+    la.textContent = "Credit acceptance rate (%)";
+    legendAccept.appendChild(la);
+    legendAccept.appendChild(
+      svgEl("rect", {
+        x: legendLCx - 10,
+        y: 4,
+        width: 210,
+        height: 28,
+        fill: "transparent",
+      })
+    );
+
+    legendApply = svgEl("g", {
+      class: "chart-legend chart-legend--apply",
+      role: "button",
+      tabindex: "0",
+      "aria-pressed": "true",
+    });
+    const lb = svgEl("text", {
+      x: plotR,
+      y: 22,
+      fill: PINK,
+      "font-size": fsLegend,
+      "font-weight": "700",
+      "text-anchor": "end",
+      "font-family": "Inter, sans-serif",
+    });
+    lb.textContent = "Credit application rate (%)";
+    legendApply.appendChild(lb);
+    legendApply.appendChild(
+      svgEl("circle", { cx: legendRCx, cy: legendCy, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
+    );
+    legendApply.appendChild(
+      svgEl("circle", {
+        class: "chart-legend__core",
+        cx: legendRCx,
+        cy: legendCy,
+        r: 6,
+        fill: PINK,
+      })
+    );
+    legendApply.appendChild(
+      svgEl("rect", {
+        x: plotR - 220,
+        y: 4,
+        width: legendRCx - (plotR - 220) + 10,
+        height: 28,
+        fill: "transparent",
+      })
+    );
+  }
 
   const setSeriesVisible = (key, on) => {
     seriesOn[key] = on;
@@ -1052,6 +1283,7 @@ function drawChart2(root) {
     axis.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
+    layer.querySelectorAll(".ann-dot.is-pulsing").forEach((el) => el.classList.remove("is-pulsing"));
     if (!on) hideCallout();
   };
 
@@ -1076,8 +1308,36 @@ function drawChart2(root) {
   animateOnView(root);
 }
 
-drawChart1(document.getElementById("chart-1"));
-drawChart2(document.getElementById("chart-2"));
+function mountChart(root, draw) {
+  if (!root) return;
+  let timer = 0;
+  let lastW = 0;
+  let wasMobile = null;
+  let wasTablet = null;
+  const mqMobile = "(max-width: 860px)";
+  const mqTablet = "(min-width: 500px) and (max-width: 860px)";
+  const render = () => {
+    root.innerHTML = "";
+    draw(root);
+    lastW = root.clientWidth;
+    wasMobile = window.matchMedia(mqMobile).matches;
+    wasTablet = window.matchMedia(mqTablet).matches;
+  };
+  render();
+  window.addEventListener("resize", () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      const isMobile = window.matchMedia(mqMobile).matches;
+      const isTablet = window.matchMedia(mqTablet).matches;
+      const w = root.clientWidth;
+      if (isMobile === wasMobile && isTablet === wasTablet && Math.abs(w - lastW) < 8) return;
+      render();
+    }, 150);
+  });
+}
+
+mountChart(document.getElementById("chart-1"), drawChart1);
+mountChart(document.getElementById("chart-2"), drawChart2);
 initGraphic3(document.querySelector(".graphic-3"));
 
 function initGraphic3(root) {
@@ -1104,57 +1364,122 @@ function initGraphic3(root) {
     case: { ...defaultCopy },
   };
 
-  const POPUP_OFFSET_PCT = 41.17; // distance from point center to popup top (design)
+  const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top
+  const MOBILE_LINE_GAP = 14; // px between popup bottom and point — shorter footnote
 
   const shiftPct = () => {
-    const stage = root.querySelector(".graphic-3-stage");
+    const scene = root.querySelector(".graphic-3-scene");
     const shiftPx = parseFloat(getComputedStyle(root).getPropertyValue("--g3-shift")) || 0;
-    const h = stage?.clientHeight || 1;
+    const h = scene?.clientHeight || 1;
     return (shiftPx / h) * 100;
   };
 
   let showTimer = 0;
 
   const placeAt = (hotspot) => {
-    const stage = root.querySelector(".graphic-3-stage");
+    const scene = root.querySelector(".graphic-3-scene");
+    const frame = root.querySelector(".graphic-3-media") || root;
+    if (!scene) return;
     const key = hotspot.dataset.key;
     const copy = popups[key] || defaultCopy;
     titleEl.innerHTML = copy.titleHtml;
     subtitleEl.textContent = copy.subtitle;
     bodyEl.textContent = copy.body;
 
+    const isMobile = window.matchMedia("(max-width: 860px)").matches;
     const x = Number(hotspot.dataset.x);
     const y = Number(hotspot.dataset.y) + shiftPct();
+    const sceneW = scene.clientWidth || 1;
+    const sceneH = scene.clientHeight || 1;
+    const pad =
+      parseFloat(getComputedStyle(root).getPropertyValue("--g3-pad")) || 16;
+    const pointX = (x / 100) * sceneW;
+    const pointYPx = (y / 100) * sceneH;
+
+    shock.style.setProperty("--shock-shift-x", "0px");
     shock.style.left = `${x}%`;
-    line.style.left = `${x}%`;
+    shock.hidden = false;
+    void shock.offsetWidth;
 
-    const shockTop = Math.max(2, y - POPUP_OFFSET_PCT);
-    shock.style.top = `${shockTop}%`;
+    if (isMobile) {
+      const popupW = shock.offsetWidth;
+      const popupH = shock.offsetHeight;
+      // Popup above the point with a short gap (shorter footnote than desktop)
+      let topPx = pointYPx - MOBILE_LINE_GAP - popupH;
+      topPx = Math.max(pad, Math.min(topPx, pointYPx - MOBILE_LINE_GAP - 40));
 
-    // Line from point up to the popup's bottom edge
-    void shock.offsetHeight;
-    const stageH = stage.clientHeight || 1;
-    const popupBottomPx = (shockTop / 100) * stageH + shock.offsetHeight;
-    const pointYPx = (y / 100) * stageH;
-    const lineH = Math.max(0, pointYPx - popupBottomPx);
-    line.style.top = `${(popupBottomPx / stageH) * 100}%`;
-    line.style.height = `${(lineH / stageH) * 100}%`;
+      const idealLeft = pointX - popupW / 2;
+      const minLeft = pad;
+      const maxLeft = sceneW - pad - popupW;
+      let left;
+      if (idealLeft >= minLeft && idealLeft <= maxLeft) {
+        // Fits — keep centered on the point
+        left = idealLeft;
+      } else {
+        // Clamp to window; keep hotspot under popup so the line still meets it
+        left = Math.max(minLeft, Math.min(idealLeft, maxLeft));
+        const hitInset = 18;
+        if (pointX < left + hitInset) {
+          left = Math.max(minLeft, pointX - hitInset);
+        }
+        if (pointX > left + popupW - hitInset) {
+          // Push right (allow tighter right edge) so the footnote hits the flat bottom, past the radius
+          const needLeft = pointX - popupW + hitInset;
+          const rightEdgePad = 2;
+          left = Math.min(needLeft, sceneW - rightEdgePad - popupW);
+          left = Math.max(minLeft, left);
+        }
+      }
+
+      shock.style.left = `${left}px`;
+      shock.style.top = `${(topPx / sceneH) * 100}%`;
+      line.style.left = `${(pointX / sceneW) * 100}%`;
+
+      const popupBottomPx = topPx + popupH;
+      const lineH = Math.max(0, pointYPx - popupBottomPx);
+      line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
+      line.style.height = `${(lineH / sceneH) * 100}%`;
+    } else {
+      const shockTop = Math.max(2, y - POPUP_OFFSET_PCT);
+      shock.style.top = `${shockTop}%`;
+      line.style.left = `${x}%`;
+
+      // Keep centered popup inside the scene (rightmost point at ~94%)
+      const popupW = shock.offsetWidth;
+      const halfW = popupW / 2;
+      const edgePad = 8;
+      let shiftX = 0;
+      const rightOverflow = pointX + halfW - (sceneW - edgePad);
+      if (rightOverflow > 0) shiftX = -rightOverflow;
+      const leftOverflow = edgePad - (pointX - halfW);
+      if (leftOverflow > 0) shiftX = leftOverflow;
+      shock.style.setProperty("--shock-shift-x", `${shiftX}px`);
+
+      const popupBottomPx = (shockTop / 100) * sceneH + shock.offsetHeight;
+      const lineH = Math.max(0, pointYPx - popupBottomPx);
+      line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
+      line.style.height = `${(lineH / sceneH) * 100}%`;
+    }
   };
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
     const restart = line.classList.contains("is-visible");
+    shock.classList.remove("is-visible");
     if (restart) {
-      shock.classList.remove("is-visible");
       line.classList.remove("is-visible");
       void line.offsetWidth;
     }
+    // Place first at final coords, then draw footnote, then fade popup in place
+    shock.style.transition = "none";
     placeAt(hotspot);
-    shock.hidden = false;
+    void shock.offsetWidth;
+    shock.style.transition = "";
     line.classList.add("is-visible");
+    const popupDelay = window.matchMedia("(max-width: 860px)").matches ? 280 : 0;
     showTimer = window.setTimeout(() => {
       shock.classList.add("is-visible");
-    }, restart ? 40 : 0);
+    }, restart ? 40 : popupDelay);
   };
 
   const hide = () => {
@@ -1164,11 +1489,12 @@ function initGraphic3(root) {
   };
 
   hotspots.forEach((hotspot) => {
-    hotspot.addEventListener("mouseenter", () => show(hotspot));
-    hotspot.addEventListener("mouseleave", hide);
-    hotspot.addEventListener("focus", () => show(hotspot));
-    hotspot.addEventListener("blur", hide);
     hotspot.setAttribute("tabindex", "0");
     hotspot.setAttribute("role", "button");
+  });
+
+  bindHoverOrTap(hotspots, {
+    show: (el) => show(el),
+    hide,
   });
 }

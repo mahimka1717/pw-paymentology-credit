@@ -56,6 +56,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
 }
 
 body {
@@ -152,22 +153,13 @@ p,
 }
 
 .artboard-guide {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 1920px;
-  height: auto;
-  transform: translateX(-50%);
-  transform-origin: 50% 0%;
-  opacity: 0.35;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 9999;
+  display: none;
 }
 
 .page {
   position: relative;
   z-index: 1;
+  overflow-x: hidden;
 }
 
 .hero-block {
@@ -181,7 +173,7 @@ p,
   left: 0;
   width: 100%;
   height: var(--hero-h);
-  background: url("../public/img/hero.jpg") center / cover no-repeat;
+  background: url("../public/img/hero.jpg") 50% 0 / cover no-repeat;
 }
 
 .graphic-0 {
@@ -396,7 +388,7 @@ h1 {
 
 .quote span {
   display: block;
-  margin-top: 6px;
+  margin-top: 0;
   font-family: "PP Monument Extended", sans-serif;
   font-weight: 400;
   font-size: 16px;
@@ -407,13 +399,14 @@ h1 {
 .graphic-3 {
   --g3-pad: 48px;
   --g3-gap: 15px;
-  --g3-shift: 50px;
+  --g3-shift: 60px;
   height: auto;
   aspect-ratio: auto;
   padding: 0;
   overflow: visible;
   margin-top: 88px;
   margin-bottom: 88px;
+  container-type: inline-size;
 }
 
 .graphic-3 h3 {
@@ -432,18 +425,34 @@ h1 {
   z-index: 1;
 }
 
-/* In-flow photo sets stage height; overflow hidden only here */
+/* Frame for photo + overlay scene */
 .graphic-3-media {
   position: relative;
   width: 100%;
-  aspect-ratio: 1094 / 730;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   z-index: 0;
-  pointer-events: none;
 }
 
-.graphic-3-media img {
+.graphic-3-scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: auto;
+  height: calc(100cqw * 730 / 1094 + 10px);
+  overflow: visible;
+  z-index: 1;
+}
+
+.graphic-3-photo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.graphic-3-photo img {
   position: absolute;
   inset: 0;
   display: block;
@@ -501,19 +510,16 @@ h1 {
   box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 10px) scale(0.96);
+  transform: translate(calc(-50% + var(--shock-shift-x, 0px)), 0) scale(0.96);
   transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
+    opacity 0.35s ease,
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: 0s;
 }
 
 .shock.is-visible {
   opacity: 1;
-  transform: translate(-50%, 0) scale(1);
-  transition:
-    opacity 0.4s ease,
-    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate(calc(-50% + var(--shock-shift-x, 0px)), 0) scale(1);
   transition-delay: 0.22s;
 }
 
@@ -582,6 +588,10 @@ h1 {
   animation: pulse 2.4s ease-out infinite;
   transform: translate(-50%, -50%) translateY(var(--g3-shift));
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  user-select: none;
 }
 
 .hotspot::before {
@@ -795,6 +805,70 @@ h1 {
 
 .ann-hotspot {
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.chart-canvas,
+.chart-canvas svg,
+.graphic-3,
+.graphic-3-scene,
+.hotspot,
+.ann-hotspot,
+.chart-legend {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ann-dot__pulse,
+.ann-dot__core {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ann-dot__pulse {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ann-dot.is-pulsing .ann-dot__pulse {
+  animation: ann-pulse-ring 1.5s ease-out infinite;
+}
+
+.ann-dot.is-pulsing .ann-dot__core {
+  animation: ann-pulse-core 1.5s ease-in-out infinite;
+}
+
+@keyframes ann-pulse-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(2.75);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.75);
+  }
+}
+
+@keyframes ann-pulse-core {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ann-dot.is-pulsing .ann-dot__pulse,
+  .ann-dot.is-pulsing .ann-dot__core {
+    animation: none;
+  }
 }
 
 .chart-legend {
@@ -866,6 +940,34 @@ h1 {
     margin-right: auto;
   }
 
+  /* Quote: column width; mark on top (mobile layout); desktop sizes */
+  .quote {
+    --quote-gap: 28px;
+    width: var(--prose);
+    max-width: 100%;
+    margin-top: 88px;
+    margin-bottom: 88px;
+  }
+
+  .quote p {
+    padding-left: 0;
+  }
+
+  .quote p::before {
+    position: static;
+    display: block;
+    left: auto;
+    top: auto;
+    font-size: 128px;
+    line-height: 0.45;
+    height: 0.45em;
+    margin: 0 0 calc(var(--quote-gap) - 30px);
+  }
+
+  .quote footer {
+    margin: 15px 0 0 410px;
+  }
+
   .join-inner,
   .site-footer {
     padding-left: 24px;
@@ -882,22 +984,30 @@ h1 {
   }
 
   .hero-block {
+    position: relative;
     height: auto;
+    min-height: calc(220px + (100vw - 24px) * 610 / 1084 + 48px);
     padding-bottom: 24px;
   }
 
   .hero-image {
-    height: 280px;
+    top: 0;
+    left: 0;
+    height: 360px;
+    background: url("../public/img/hero.jpg") 50% 0 / cover no-repeat;
   }
 
   .graphic-0 {
-    position: relative;
-    top: -80px;
-    left: auto;
+    position: absolute;
+    top: 220px;
+    left: 0;
+    right: 0;
     transform: none;
     width: calc(100% - 24px);
-    height: 420px;
-    margin: 0 auto -56px;
+    max-width: none;
+    height: auto;
+    aspect-ratio: 1084 / 610;
+    margin: 0 auto;
   }
 
   .main {
@@ -908,6 +1018,13 @@ h1 {
   h1 {
     font-size: 26px;
     line-height: 34px;
+  }
+
+  h1 br,
+  h2 br,
+  h3 br,
+  .quote p br {
+    display: none;
   }
 
   .dek {
@@ -928,7 +1045,7 @@ h1 {
   .graphic-chart h3,
   .graphic-3 h3 {
     font-size: 15px;
-    line-height: 22px;
+    line-height: 18px;
   }
 
   .graphic-chart figcaption p {
@@ -936,14 +1053,47 @@ h1 {
     line-height: 18px;
   }
 
+  .quote {
+    --quote-gap: 28px;
+    --quote-mark: 96px;
+    width: 100%;
+    max-width: 100%;
+    margin: 63px 0 48px;
+    padding: 0;
+  }
+
   .quote p {
     font-size: 22px;
     line-height: 28px;
-    padding-left: 48px;
+    padding-left: 0;
+  }
+
+  .quote p::before {
+    position: static;
+    display: block;
+    left: auto;
+    top: auto;
+    font-size: var(--quote-mark);
+    line-height: 0.45;
+    height: 0.45em;
+    margin: 0 0 calc(var(--quote-gap) - 30px);
   }
 
   .quote footer {
-    margin-left: 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: var(--quote-gap) 0 0;
+  }
+
+  .quote cite {
+    font-size: 17px;
+    line-height: 23px;
+  }
+
+  .quote span {
+    font-size: 13.5px;
+    line-height: 13.5px;
   }
 
   .graphic-chart,
@@ -952,19 +1102,89 @@ h1 {
     margin: 40px 0;
   }
 
+  #chart-2-wrap figcaption h3 {
+    margin-bottom: 20px;
+  }
+
+  #chart-1-wrap .chart-canvas,
+  #chart-2-wrap .chart-canvas {
+    min-height: 0;
+    width: calc(100% + 40px);
+    margin-left: -20px;
+    margin-right: -20px;
+  }
+
+  #chart-1-wrap figcaption p {
+    margin-bottom: 20px;
+  }
+
+  #chart-1-wrap .chart-canvas svg,
+  #chart-2-wrap .chart-canvas svg {
+    width: 100%;
+    overflow: visible;
+  }
+
+  #chart-1-wrap .source,
+  #chart-2-wrap .source {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  #chart-1-wrap figcaption p,
+  #chart-2-wrap figcaption p {
+    font-size: 15px;
+    line-height: 20px;
+  }
+
   .graphic-3 {
     --g3-pad: 24px;
     --g3-gap: 15px;
+    --g3-shift: 50px;
+    --g3-lift: 50px;
     height: auto;
     aspect-ratio: auto;
     padding: 0;
     overflow: visible;
+    container-type: inline-size;
+  }
+
+  .graphic-3-media {
+    aspect-ratio: auto;
+    height: calc(100cqw * 730 / 1094 + 80px);
+  }
+
+  .graphic-3-scene {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--g3-lift);
+    width: 100%;
+    height: calc(100cqw * 730 / 1094);
+  }
+
+  /* Raise scene; photo extends into the gap; img uses same cover+shift as desktop */
+  .graphic-3-photo {
+    top: 0;
+    bottom: calc(-1 * var(--g3-lift));
+    overflow: hidden;
+  }
+
+  .graphic-3-photo img {
+    inset: auto;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: calc(100cqw * 730 / 1094);
+    object-fit: cover;
+    object-position: 50% 50%;
+    transform: translateY(var(--g3-shift));
   }
 
   .graphic-3 h3 {
-    left: 6.9%;
+    left: var(--g3-pad);
+    right: var(--g3-pad);
     top: var(--g3-pad);
-    font-size: 14px;
   }
 
   .maya {
@@ -973,8 +1193,15 @@ h1 {
     right: auto;
   }
 
-  .maya strong {
-    font-size: 18px;
+  .graphic-3 .maya strong {
+    font-size: 14px;
+    line-height: 14px;
+  }
+
+  .graphic-3 .maya span {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 12px;
   }
 
   .shock {
@@ -983,12 +1210,51 @@ h1 {
     right: auto;
     width: 28%;
     min-width: 140px;
+    max-width: min(200px, calc(100% - 32px));
     padding: 14px;
-    transform: translateX(-50%);
+    overflow: hidden;
+    /* left is set in px as the left edge — no -50% centering */
+    transform: translate(0, 0) scale(0.96);
+  }
+
+  .shock.is-visible {
+    transform: translate(0, 0) scale(1);
+    transition-delay: 0s;
+  }
+
+  .shock strong,
+  .shock em,
+  .shock span {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  .shock strong {
+    font-size: 14px;
+    line-height: 16px;
+  }
+
+  .shock em {
+    margin: 8px 0 12px;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .shock span {
+    font-size: 11px;
+    line-height: 14px;
   }
 
   .join-inner {
     flex-wrap: wrap;
+  }
+
+  .read-more {
+    gap: 8px;
+    padding: 10px 18px;
+    border-width: 2px;
+    font-size: 16px;
   }
 
   .join h2 {
@@ -1002,5 +1268,68 @@ h1 {
 
   .artboard-guide {
     display: none;
+  }
+}
+
+@media (min-width: 500px) and (max-width: 860px) {
+  .main {
+    width: 100%;
+    max-width: none;
+  }
+
+  .article-head,
+  .main > h2,
+  .main > p,
+  .quote,
+  .cta-wrap {
+    width: calc(100% - 100px);
+    max-width: none;
+    margin-left: 50px;
+    margin-right: 50px;
+  }
+
+  .quote {
+    margin-top: 63px;
+    margin-bottom: 48px;
+  }
+
+  .cta-wrap {
+    width: calc(100% - 100px) !important;
+    margin-left: 50px !important;
+    margin-right: 50px !important;
+  }
+
+  .graphic-chart,
+  .graphic-3 {
+    width: calc(100% - 24px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .graphic-chart {
+    padding: 28px 40px 24px;
+  }
+
+  .graphic-3 {
+    --g3-pad: 40px;
+  }
+
+  #chart-1-wrap .chart-canvas {
+    /* Grid aligns to content column; Y labels hang into left padding */
+    width: calc(100% + 28px);
+    margin-left: -28px;
+    margin-right: 0;
+  }
+
+  #chart-2-wrap .chart-canvas {
+    width: calc(100% + 56px);
+    margin-left: -28px;
+    margin-right: -28px;
+  }
+
+  .graphic-chart h3,
+  .graphic-3 h3 {
+    font-size: 20px;
+    line-height: 22px;
   }
 }
