@@ -771,12 +771,11 @@ function drawChart1(root) {
       monthLabel.setAttribute("x", cx + calloutW / 2);
       monthLabel.setAttribute("text-anchor", "middle");
       rightTexts.forEach((t) => t.setAttribute("x", cx + padX + percentW + minGap));
-      // July → right edge; April → same relative spot as desktop (not flush left)
-      let targetLeft = isJuly
-        ? plotR - calloutW
-        : plotL + Math.round((477 / 933) * (plotR - plotL));
-      targetLeft = Math.max(plotL, Math.min(targetLeft, plotR - calloutW));
-      panel.setAttribute("transform", `translate(${targetLeft - cx}, 0)`);
+      // Keep April/July clearly apart on narrow mobile plots (avoid same clamped X)
+      const span = Math.max(0, plotR - plotL - calloutW);
+      const targetLeft = plotL + (isJuly ? span : 0);
+      const dy = isJuly ? 14 : 0;
+      panel.setAttribute("transform", `translate(${targetLeft - cx}, ${dy})`);
       return;
     }
     const monthW = monthLabel.getComputedTextLength();
