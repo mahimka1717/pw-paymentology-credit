@@ -880,6 +880,81 @@ html.no-animate .anim-dot,
   z-index: 5;
 }
 
+.chart2-callout-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.chart2-callout {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  padding: var(--callout-pad, 22px);
+  border-radius: 12px;
+  background: var(--navy, #15154d);
+  color: #fff;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: Inter, sans-serif;
+}
+
+.chart2-callout.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.chart2-callout.scrub-ease {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chart2-callout__title {
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.chart2-callout__body1 {
+  margin: 0 0 8px;
+  color: var(--purple);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: -0.05em;
+}
+
+.chart2-callout__body2 {
+  margin: 0;
+  color: var(--purple-soft);
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: -0.05em;
+}
+
+@media (max-width: 860px) {
+  .chart2-callout__title {
+    font-size: 16px;
+  }
+
+  .chart2-callout__body1,
+  .chart2-callout__body2 {
+    font-size: 11px;
+  }
+}
+
 /* Same look + pulse as graphic-3 .hotspot */
 .ann-dot {
   position: absolute;
@@ -1044,8 +1119,7 @@ html.is-chart-scrubbing body {
 }
 
 .chart-scrubber.scrub-ease,
-.chart-scrubber-handle.scrub-ease,
-.callout-box--hover .callout-panel.scrub-ease {
+.chart-scrubber-handle.scrub-ease {
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 

@@ -1231,93 +1231,41 @@ function drawChart2(root) {
 
   const calloutPad = isMobile ? 16 : 22;
   let calloutW = isMobile ? 140 : 200;
-  const g = svgEl("g", { class: "callout-box callout-box--hover" });
-  const panel = svgEl("g", { class: "callout-panel" });
-  const titleY = calloutPad + (isMobile ? 13 : 15);
-  const body1Y = titleY + (isMobile ? 20 : 24);
-  const body1Line = fsSm;
-  const body2Y = body1Y + (isMobile ? body1Line + 16 : 22);
-  const lastBaseline = body2Y + (isMobile ? body1Line * 2 : fsSm) + (isMobile ? 2 : 12);
-  const calloutH = lastBaseline + calloutPad;
-  const calloutRect = svgEl("rect", {
-    x: 0,
-    y: 0,
-    width: calloutW,
-    height: calloutH,
-    rx: 12,
-    fill: NAVY,
-  });
-  panel.appendChild(calloutRect);
-  const add = (attrs, str) => {
-    const t = svgEl("text", attrs);
-    t.textContent = str;
-    panel.appendChild(t);
-    return t;
-  };
-  const calloutTitle = add(
-    {
-      x: calloutPad,
-      y: titleY,
-      fill: "#fff",
-      "font-size": isMobile ? 16 : 20,
-      "font-weight": 600,
-      "font-family": "Inter, sans-serif",
-      style: `line-height: ${isMobile ? 16 : 20}px`,
-    },
-    "Q4 2020"
-  );
-  const body1 = svgEl("text", {
-    x: calloutPad,
-    y: body1Y,
-    fill: PURPLE,
-    "font-size": fsSm,
-    "font-family": "Inter, sans-serif",
-    "letter-spacing": "-0.05em",
-    style: `line-height: ${fsSm}px`,
-  });
-  let body1a = null;
-  let body1b = null;
-  if (isMobile) {
-    body1a = svgEl("tspan", { x: calloutPad, dy: 0 });
-    body1a.textContent = "Second lockdowns";
-    body1b = svgEl("tspan", { x: calloutPad, dy: body1Line });
-    body1b.textContent = "across Europe";
-    body1.append(body1a, body1b);
-  } else {
-    body1.textContent = "Second lockdowns across Europe";
-  }
-  panel.appendChild(body1);
-  const body2 = svgEl("text", {
-    x: calloutPad,
-    y: body2Y,
-    fill: PURPLE_SOFT,
-    "font-size": fsSm,
-    "font-family": "Inter, sans-serif",
-    "letter-spacing": "-0.05em",
-    style: `line-height: ${fsSm}px`,
-  });
-  const body2a = svgEl("tspan", { x: calloutPad, dy: 0 });
-  let body2mid = null;
-  if (isMobile) {
-    body2a.textContent = "A further decline";
-    body2mid = svgEl("tspan", { x: calloutPad, dy: body1Line });
-    body2mid.textContent = "in acceptance";
-  } else {
-    body2a.textContent = "A further decline in acceptance";
-  }
-  const body2b = svgEl("tspan", { x: calloutPad, dy: body1Line });
+  const calloutPy = isMobile ? 50 : 0;
+
+  // HTML callout above ann-dot-layer (SVG sits under HTML pups)
+  const calloutLayer = document.createElement("div");
+  calloutLayer.className = "chart2-callout-layer";
+  calloutLayer.style.aspectRatio = `${w} / ${h}`;
+  const callout = document.createElement("div");
+  callout.className = "chart2-callout";
+  callout.style.setProperty("--callout-pad", `${calloutPad}px`);
+  const calloutTitle = document.createElement("div");
+  calloutTitle.className = "chart2-callout__title";
+  calloutTitle.textContent = "Q4 2020";
+  const body1 = document.createElement("div");
+  body1.className = "chart2-callout__body1";
+  body1.innerHTML = isMobile
+    ? "Second lockdowns<br />across Europe"
+    : "Second lockdowns across Europe";
+  const body2 = document.createElement("div");
+  body2.className = "chart2-callout__body2";
+  const body2Lead = document.createElement("span");
+  body2Lead.innerHTML = isMobile
+    ? "A further decline<br />in acceptance<br />"
+    : "A further decline in acceptance<br />";
+  const body2b = document.createElement("span");
   body2b.textContent = "to 66.4%";
-  if (body2mid) body2.append(body2a, body2mid, body2b);
-  else body2.append(body2a, body2b);
-  panel.appendChild(body2);
-  g.appendChild(panel);
+  body2.append(body2Lead, body2b);
+  callout.append(calloutTitle, body1, body2);
+  calloutLayer.appendChild(callout);
 
   let scrubPosX = scrubX;
 
   const setScrubEase = (on) => {
     scrubber.classList.toggle("scrub-ease", on);
     scrubHandle.classList.toggle("scrub-ease", on);
-    panel.classList.toggle("scrub-ease", on);
+    callout.classList.toggle("scrub-ease", on);
   };
 
   const moveScrubberTo = (x, { animate = false } = {}) => {
@@ -1330,19 +1278,10 @@ function drawChart2(root) {
     scrubHandle.setAttribute("data-anim-x", x);
   };
 
-  const layoutCallout = () => {
-    const lengths = [calloutTitle.getComputedTextLength(), body2b.getComputedTextLength()];
-    if (body1a && body1b) {
-      lengths.push(body1a.getComputedTextLength(), body1b.getComputedTextLength());
-    } else {
-      lengths.push(body1.getComputedTextLength());
-    }
-    lengths.push(body2a.getComputedTextLength());
-    if (body2mid) lengths.push(body2mid.getComputedTextLength());
-    const contentW = Math.max(...lengths);
-    calloutW = Math.ceil(contentW + calloutPad * 2);
-    calloutRect.setAttribute("width", calloutW);
-    calloutRect.setAttribute("height", calloutH);
+  const measureCalloutW = () => {
+    const layerW = calloutLayer.clientWidth || root.clientWidth || 1;
+    const cssW = callout.offsetWidth;
+    if (cssW > 0) calloutW = (cssW / layerW) * w;
   };
 
   const calloutPxFor = (x) => {
@@ -1352,10 +1291,12 @@ function drawChart2(root) {
     return left + calloutW <= plotR ? left : Math.max(plotL, right);
   };
 
-  const calloutPy = isMobile ? 50 : 0;
-
   const placeCalloutPanel = (x) => {
-    panel.setAttribute("transform", `translate(${calloutPxFor(x)}, ${calloutPy})`);
+    // Measure with current copy, then place (may flip left/right)
+    callout.style.left = `${((x + 31) / w) * 100}%`;
+    callout.style.top = `${(calloutPy / h) * 100}%`;
+    measureCalloutW();
+    callout.style.left = `${(calloutPxFor(x) / w) * 100}%`;
   };
 
   const clearAnnPulses = () => {
@@ -1377,17 +1318,15 @@ function drawChart2(root) {
     const [q, year] = quarterLabels[i];
     calloutTitle.textContent = `${q} ${year}`;
     body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
-    layoutCallout();
     setScrubEase(animate);
     placeCalloutPanel(x);
     moveScrubberTo(x, { animate });
-    svg.appendChild(g);
-    g.classList.add("is-visible");
+    callout.classList.add("is-visible");
     pulseQuarter(i);
   };
 
   const hideCallout = () => {
-    g.classList.remove("is-visible");
+    callout.classList.remove("is-visible");
     clearAnnPulses();
   };
 
@@ -1487,10 +1426,8 @@ function drawChart2(root) {
       const [q, year] = quarterLabels[i];
       calloutTitle.textContent = `${q} ${year}`;
       body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
-      layoutCallout();
       placeCalloutPanel(clamped);
-      svg.appendChild(g);
-      g.classList.add("is-visible");
+      callout.classList.add("is-visible");
       pulseQuarter(i);
     } else {
       hideCallout();
@@ -1815,9 +1752,9 @@ function drawChart2(root) {
   });
 
   svg.append(legendAccept, legendApply);
-  svg.appendChild(g);
   root.appendChild(svg);
   root.appendChild(annLayer);
+  root.appendChild(calloutLayer);
 
   const setSeriesVisible = (key, on) => {
     seriesOn[key] = on;
@@ -1862,7 +1799,6 @@ function drawChart2(root) {
     defs,
     acceptG,
     applyG,
-    g,
     guidesLayer,
     scrubber,
     scrubHandle,
