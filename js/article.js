@@ -819,12 +819,13 @@ function drawChart1(root) {
   const rightAttrs = {
     "font-size": fsSm,
     "font-family": "Inter, sans-serif",
+    "font-weight": 600,
     "letter-spacing": "-0.05em",
     style: `line-height: ${fsSm}px`,
   };
   const rightTexts = [
-    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 44 : 48), fill: PURPLE, "font-weight": 600 }, "fewer new cards"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 56 : 62), fill: PURPLE, "font-weight": 400 }, "versus Jan 2020"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 44 : 48), fill: PURPLE }, "fewer new cards"),
+    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 56 : 62), fill: PURPLE }, "versus Jan 2020"),
   ];
   const pct90 = add(
     {
@@ -838,49 +839,103 @@ function drawChart1(root) {
     },
     "90%"
   );
-  rightTexts.push(
-    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 94 : 102), fill: PURPLE_SOFT, "font-weight": 600 }, "fewer new cards"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 120 : 131), fill: PURPLE_SOFT, "font-weight": 400 }, "For the riskiest borrowers"),
-    add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 134 : 147), fill: PURPLE_SOFT, "font-weight": 400 }, "the market almost froze")
+  const lineBot1 = add(
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 94 : 102), fill: PURPLE_SOFT },
+    "fewer new cards"
   );
+  const lineBot2 = add(
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 120 : 131), fill: PURPLE_SOFT },
+    "For the riskiest borrowers"
+  );
+  const lineBot3 = add(
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 134 : 147), fill: PURPLE_SOFT },
+    "the market almost froze"
+  );
+  rightTexts.push(lineBot1, lineBot2, lineBot3);
   g.appendChild(panel);
   svg.appendChild(g);
 
+  const setPopupCopy = (isJuly) => {
+    const yTop1 = cy + (isMobile ? 44 : 48);
+    const yTop2 = cy + (isMobile ? 56 : 62);
+    // April: label at 90% baseline, then two lines below
+    const yApr1 = cy + (isMobile ? 94 : 102);
+    const yApr2 = cy + (isMobile ? 120 : 131);
+    const yApr3 = cy + (isMobile ? 134 : 147);
+    // July: same interline as top pair; 2nd line flush with bottom of 90%
+    const yJul1 = cy + (isMobile ? 84 : 90);
+    const yJul2 = cy + (isMobile ? 96 : 104);
+    const yJul3 = cy + (isMobile ? 134 : 147);
+
+    rightTexts[0].setAttribute("y", yTop1);
+    rightTexts[1].setAttribute("y", yTop2);
+
+    if (isJuly) {
+      pct60.textContent = "50%";
+      pct90.textContent = "90%";
+      rightTexts[0].textContent = "fewer new cards";
+      rightTexts[0].setAttribute("y", yTop1); // flush with top of 50%
+      rightTexts[1].textContent = "";
+      lineBot1.textContent = "fewer for the riskiest";
+      lineBot2.textContent = "borrowers";
+      lineBot3.textContent = "The gap remained stark";
+      lineBot3.setAttribute("fill", "#fff");
+      lineBot3.setAttribute("text-anchor", "middle");
+      lineBot1.setAttribute("y", yJul1);
+      lineBot2.setAttribute("y", yJul2);
+      lineBot3.setAttribute("y", yJul3);
+      return;
+    }
+    pct60.textContent = "60%";
+    pct90.textContent = "90%";
+    rightTexts[0].textContent = "fewer new cards";
+    rightTexts[0].setAttribute("y", yTop1);
+    rightTexts[1].textContent = "versus Jan 2020";
+    lineBot1.textContent = "fewer new cards";
+    lineBot2.textContent = "For the riskiest borrowers";
+    lineBot3.textContent = "the market almost froze";
+    lineBot3.setAttribute("fill", PURPLE_SOFT);
+    lineBot3.setAttribute("text-anchor", "start");
+    lineBot1.setAttribute("y", yApr1);
+    lineBot2.setAttribute("y", yApr2);
+    lineBot3.setAttribute("y", yApr3);
+  };
+
   const alignPopup = (name, isJuly = false) => {
     monthLabel.textContent = name;
+    setPopupCopy(isJuly);
+    const maxRightW = Math.max(
+      0,
+      ...rightTexts.filter((t) => t !== lineBot3 || !isJuly).map((t) => t.getComputedTextLength())
+    );
+    const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
+    // 10px tighter than before (was 16 mobile / 24 desktop)
+    const textGap = isMobile ? 6 : 14;
+    calloutW = Math.max(
+      padX * 2 + Math.max(monthLabel.getComputedTextLength(), percentW + textGap + maxRightW),
+      isJuly ? padX * 2 + lineBot3.getComputedTextLength() : 0,
+      isMobile ? 190 : 200
+    );
+    calloutRect.setAttribute("width", calloutW);
+    const center = cx + calloutW / 2;
+    monthLabel.setAttribute("x", center);
+    monthLabel.setAttribute("text-anchor", "middle");
+    const textX = cx + padX + percentW + textGap;
+    rightTexts.forEach((t) => {
+      if (t === lineBot3 && isJuly) {
+        t.setAttribute("x", center);
+        t.setAttribute("text-anchor", "middle");
+        return;
+      }
+      t.setAttribute("x", textX);
+      t.setAttribute("text-anchor", "start");
+    });
     if (isMobile) {
-      // No month↔body alignment on mobile — month centered, body stays by percents
-      const maxRightW = Math.max(...rightTexts.map((t) => t.getComputedTextLength()));
-      const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
-      const minGap = 16;
-      calloutW = Math.max(
-        padX * 2 + Math.max(monthLabel.getComputedTextLength(), percentW + minGap + maxRightW),
-        200
-      );
-      calloutRect.setAttribute("width", calloutW);
-      monthLabel.setAttribute("x", cx + calloutW / 2);
-      monthLabel.setAttribute("text-anchor", "middle");
-      rightTexts.forEach((t) => t.setAttribute("x", cx + padX + percentW + minGap));
-      // Keep April/July clearly apart on narrow mobile plots (avoid same clamped X)
       const span = Math.max(0, plotR - plotL - calloutW);
       const targetLeft = plotL + (isJuly ? span : 0);
       panel.setAttribute("transform", `translate(${targetLeft - cx}, 0)`);
       return;
     }
-    const monthW = monthLabel.getComputedTextLength();
-    const maxRightW = Math.max(...rightTexts.map((t) => t.getComputedTextLength()));
-    const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
-    const minGap = 24;
-    calloutW = Math.max(
-      2 * padX - monthW + 2 * maxRightW,
-      2 * (padX + percentW + minGap) + monthW,
-      2 * padX + percentW + minGap + maxRightW
-    );
-    calloutRect.setAttribute("width", calloutW);
-    const center = cx + calloutW / 2;
-    monthLabel.setAttribute("x", center);
-    const colX = center - monthW / 2;
-    rightTexts.forEach((t) => t.setAttribute("x", colX));
     panel.setAttribute("transform", isJuly ? `translate(${plotR - calloutW - cx}, 0)` : "");
   };
 
@@ -1321,9 +1376,37 @@ function drawChart2(root) {
   );
   svg.appendChild(scrubHandle);
 
-  const calloutPad = isMobile ? 16 : 22;
   let calloutW = isMobile ? 140 : 200;
   const calloutPy = isMobile ? 50 : 0;
+
+  // title / blue (purple) / pink — Outlook has no blue line
+  const calloutCopy = {
+    0: {
+      title: "March 2020",
+      blue: "COVID-19 pandemic",
+      pink: "82.8% of credit applications were accepted",
+    },
+    2: {
+      title: "Q3 2020",
+      blue: "First lockdowns ease",
+      pink: "Applications rose to 16.3%, while acceptance fell to 72.6%",
+    },
+    3: {
+      title: "Q4 2020",
+      blue: "Second lockdowns across Europe",
+      pink: "A further decline in acceptance\nto 66.4%",
+    },
+    9: {
+      title: "Feb 2022",
+      blue: "Russia invades Ukraine",
+      pink: "Applications fell to 12.2% and acceptance dropped to 62.1%",
+    },
+    11: {
+      title: "Outlook (Q4 2022)",
+      blue: "",
+      pink: "Both applications and acceptance recovered but remained below pre-pandemic levels",
+    },
+  };
 
   // HTML callout above ann-dot-layer (SVG sits under HTML pups)
   const calloutLayer = document.createElement("div");
@@ -1331,26 +1414,40 @@ function drawChart2(root) {
   calloutLayer.style.aspectRatio = `${w} / ${h}`;
   const callout = document.createElement("div");
   callout.className = "chart2-callout";
-  callout.style.setProperty("--callout-pad", `${calloutPad}px`);
   const calloutTitle = document.createElement("div");
   calloutTitle.className = "chart2-callout__title";
-  calloutTitle.textContent = "Q4 2020";
   const body1 = document.createElement("div");
   body1.className = "chart2-callout__body1";
-  body1.innerHTML = isMobile
-    ? "Second lockdowns<br />across Europe"
-    : "Second lockdowns across Europe";
   const body2 = document.createElement("div");
   body2.className = "chart2-callout__body2";
-  const body2Lead = document.createElement("span");
-  body2Lead.innerHTML = isMobile
-    ? "A further decline<br />in acceptance<br />"
-    : "A further decline in acceptance<br />";
-  const body2b = document.createElement("span");
-  body2b.textContent = "to 66.4%";
-  body2.append(body2Lead, body2b);
   callout.append(calloutTitle, body1, body2);
   calloutLayer.appendChild(callout);
+
+  const fillCalloutLines = (el, text) => {
+    el.textContent = "";
+    String(text || "")
+      .split("\n")
+      .forEach((line, idx) => {
+        if (idx) el.appendChild(document.createElement("br"));
+        el.appendChild(document.createTextNode(line));
+      });
+  };
+
+  const setCalloutContent = (i) => {
+    const copy = calloutCopy[i];
+    if (!copy) return;
+    calloutTitle.textContent = copy.title;
+    if (copy.blue) {
+      fillCalloutLines(body1, copy.blue);
+      body1.hidden = false;
+      body2.classList.remove("is-solo");
+    } else {
+      body1.textContent = "";
+      body1.hidden = true;
+      body2.classList.add("is-solo");
+    }
+    fillCalloutLines(body2, copy.pink);
+  };
 
   let scrubPosX = scrubX;
 
@@ -1377,7 +1474,7 @@ function drawChart2(root) {
   };
 
   const calloutPxFor = (x) => {
-    const gap = 31;
+    const gap = isMobile ? 31 : 46;
     const left = x + gap;
     const right = x - calloutW - gap;
     return left + calloutW <= plotR ? left : Math.max(plotL, right);
@@ -1385,7 +1482,8 @@ function drawChart2(root) {
 
   const placeCalloutPanel = (x) => {
     // Measure with current copy, then place (may flip left/right)
-    callout.style.left = `${((x + 31) / w) * 100}%`;
+    const probeGap = isMobile ? 31 : 46;
+    callout.style.left = `${((x + probeGap) / w) * 100}%`;
     callout.style.top = `${(calloutPy / h) * 100}%`;
     measureCalloutW();
     callout.style.left = `${(calloutPxFor(x) / w) * 100}%`;
@@ -1420,9 +1518,7 @@ function drawChart2(root) {
   };
 
   const showCalloutAt = (i, x = cxAt(i), { animate = false } = {}) => {
-    const [q, year] = quarterLabels[i];
-    calloutTitle.textContent = `${q} ${year}`;
-    body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
+    setCalloutContent(i);
     setScrubEase(animate);
     placeCalloutPanel(x);
     moveScrubberTo(x, { animate });
@@ -1556,9 +1652,7 @@ function drawChart2(root) {
     moveScrubberTo(clamped, { animate: false });
     const i = snapQuarter(clamped);
     if (quarterHasActive(i)) {
-      const [q, year] = quarterLabels[i];
-      calloutTitle.textContent = `${q} ${year}`;
-      body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
+      setCalloutContent(i);
       placeCalloutPanel(clamped);
       callout.classList.add("is-visible");
       calloutOpen = true;
@@ -2029,13 +2123,38 @@ function initGraphic3(root) {
     subtitle: "Freelance demand falls",
     body: "A downturn reduces her income further.",
   };
+  // Left → right by hotspot x
   const popups = {
-    pen: { ...defaultCopy },
-    car: { ...defaultCopy },
-    gauge: { ...defaultCopy },
-    card: { ...defaultCopy },
-    bar: { ...defaultCopy },
-    case: { ...defaultCopy },
+    car: {
+      titleHtml: "Unexpected<br />expense",
+      subtitle: "$1,000 car repair",
+      body: "A one-off expense puts temporary pressure on her finances.",
+    },
+    pen: {
+      titleHtml: "Credit<br />access",
+      subtitle: "Loan declined",
+      body: "A conventional assessment struggles to distinguish temporary volatility from longer-term risk.",
+    },
+    gauge: {
+      titleHtml: "Credit<br />history",
+      subtitle: "Good credit score",
+      body: "Her credit history remains strong despite variable income.",
+    },
+    card: {
+      titleHtml: "Income",
+      subtitle: "€6,500 > €2,000 > €4,000",
+      body: "Income changes as projects start and end.",
+    },
+    bar: {
+      titleHtml: "Economic<br />shock",
+      subtitle: "Freelance demand falls",
+      body: "A downturn reduces her income further.",
+    },
+    case: {
+      titleHtml: "Employment",
+      subtitle: "Freelance + part-time",
+      body: "Moves between different forms of work.",
+    },
   };
 
   const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top

@@ -503,10 +503,10 @@ h1 {
   left: 76.5%;
   right: auto;
   z-index: 20;
-  width: 20.5%;
+  width: max-content;
   min-width: 180px;
-  max-width: 240px;
-  padding: 22px 22px 20px;
+  max-width: 260px;
+  padding: 22px;
   background: var(--navy);
   color: #fff;
   border-radius: 18px;
@@ -545,19 +545,23 @@ h1 {
   font-style: normal;
   font-family: Inter, system-ui, sans-serif;
   font-size: 14px;
-  line-height: 12px;
+  line-height: 14px;
   font-weight: 600;
   letter-spacing: -0.05em;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .shock span {
   display: block;
   font-family: Inter, system-ui, sans-serif;
   font-size: 12px;
-  line-height: 12px;
+  line-height: 15px;
   font-weight: 600;
   letter-spacing: -0.05em;
   color: var(--purple-soft);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .shock-line {
@@ -886,8 +890,10 @@ html.no-animate .anim-dot,
   left: 0;
   top: 0;
   box-sizing: border-box;
-  padding: var(--callout-pad, 22px);
-  border-radius: 12px;
+  width: max-content;
+  max-width: min(280px, 70vw);
+  padding: 22px;
+  border-radius: 18px;
   background: var(--navy, #15154d);
   color: #fff;
   opacity: 0;
@@ -896,7 +902,6 @@ html.no-animate .anim-dot,
     opacity 0.3s ease,
     transform 0.3s ease;
   pointer-events: none;
-  white-space: nowrap;
   font-family: Inter, sans-serif;
 }
 
@@ -917,26 +922,47 @@ html.no-animate .anim-dot,
   color: #fff;
   font-size: 20px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .chart2-callout__body1 {
   margin: 0 0 8px;
   color: var(--purple);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 15px;
+  font-weight: 600;
   letter-spacing: -0.05em;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.chart2-callout__body1[hidden] {
+  display: none;
 }
 
 .chart2-callout__body2 {
   margin: 0;
   color: var(--purple-soft);
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 15px;
+  font-weight: 600;
   letter-spacing: -0.05em;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.chart2-callout__body2.is-solo {
+  /* Sit under title in place of the missing blue line */
+  margin-top: 0;
 }
 
 @media (max-width: 860px) {
+  .chart2-callout {
+    padding: 14px;
+    max-width: min(220px, calc(100vw - 48px));
+    border-radius: 14px;
+  }
+
   .chart2-callout__title {
     font-size: 16px;
   }
@@ -944,6 +970,7 @@ html.no-animate .anim-dot,
   .chart2-callout__body1,
   .chart2-callout__body2 {
     font-size: 11px;
+    line-height: 14px;
   }
 }
 
@@ -1591,9 +1618,9 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     left: 76.5%;
     top: 28.5%;
     right: auto;
-    width: 28%;
+    width: max-content;
     min-width: 140px;
-    max-width: min(200px, calc(100% - 32px));
+    max-width: min(220px, calc(100% - 32px));
     padding: 14px;
     overflow: hidden;
     /* left is set in px as the left edge — no -50% centering */
