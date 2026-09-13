@@ -1223,8 +1223,9 @@ function drawChart2(root) {
   const panel = svgEl("g", { class: "callout-panel" });
   const titleY = calloutPad + (isMobile ? 13 : 15);
   const body1Y = titleY + (isMobile ? 20 : 24);
-  const body2Y = body1Y + (isMobile ? 18 : 22);
-  const lastBaseline = body2Y + (isMobile ? 11 : 12);
+  const body1Line = fsSm;
+  const body2Y = body1Y + (isMobile ? body1Line + 16 : 22);
+  const lastBaseline = body2Y + (isMobile ? body1Line * 2 : fsSm) + (isMobile ? 2 : 12);
   const calloutH = lastBaseline + calloutPad;
   const calloutRect = svgEl("rect", {
     x: 0,
@@ -1253,18 +1254,27 @@ function drawChart2(root) {
     },
     "Q4 2020"
   );
-  const body1 = add(
-    {
-      x: calloutPad,
-      y: body1Y,
-      fill: PURPLE,
-      "font-size": fsSm,
-      "font-family": "Inter, sans-serif",
-      "letter-spacing": "-0.05em",
-      style: `line-height: ${fsSm}px`,
-    },
-    "Second lockdowns across Europe"
-  );
+  const body1 = svgEl("text", {
+    x: calloutPad,
+    y: body1Y,
+    fill: PURPLE,
+    "font-size": fsSm,
+    "font-family": "Inter, sans-serif",
+    "letter-spacing": "-0.05em",
+    style: `line-height: ${fsSm}px`,
+  });
+  let body1a = null;
+  let body1b = null;
+  if (isMobile) {
+    body1a = svgEl("tspan", { x: calloutPad, dy: 0 });
+    body1a.textContent = "Second lockdowns";
+    body1b = svgEl("tspan", { x: calloutPad, dy: body1Line });
+    body1b.textContent = "across Europe";
+    body1.append(body1a, body1b);
+  } else {
+    body1.textContent = "Second lockdowns across Europe";
+  }
+  panel.appendChild(body1);
   const body2 = svgEl("text", {
     x: calloutPad,
     y: body2Y,
@@ -1275,10 +1285,18 @@ function drawChart2(root) {
     style: `line-height: ${fsSm}px`,
   });
   const body2a = svgEl("tspan", { x: calloutPad, dy: 0 });
-  body2a.textContent = "A further decline in acceptance";
-  const body2b = svgEl("tspan", { x: calloutPad, dy: fsSm });
+  let body2mid = null;
+  if (isMobile) {
+    body2a.textContent = "A further decline";
+    body2mid = svgEl("tspan", { x: calloutPad, dy: body1Line });
+    body2mid.textContent = "in acceptance";
+  } else {
+    body2a.textContent = "A further decline in acceptance";
+  }
+  const body2b = svgEl("tspan", { x: calloutPad, dy: body1Line });
   body2b.textContent = "to 66.4%";
-  body2.append(body2a, body2b);
+  if (body2mid) body2.append(body2a, body2mid, body2b);
+  else body2.append(body2a, body2b);
   panel.appendChild(body2);
   g.appendChild(panel);
 
@@ -1301,27 +1319,18 @@ function drawChart2(root) {
   };
 
   const layoutCallout = () => {
-    const contentW = Math.max(
-      calloutTitle.getComputedTextLength(),
-      body1.getComputedTextLength(),
-      body2a.getComputedTextLength(),
-      body2b.getComputedTextLength()
-    );
+    const lengths = [calloutTitle.getComputedTextLength(), body2b.getComputedTextLength()];
+    if (body1a && body1b) {
+      lengths.push(body1a.getComputedTextLength(), body1b.getComputedTextLength());
+    } else {
+      lengths.push(body1.getComputedTextLength());
+    }
+    lengths.push(body2a.getComputedTextLength());
+    if (body2mid) lengths.push(body2mid.getComputedTextLength());
+    const contentW = Math.max(...lengths);
     calloutW = Math.ceil(contentW + calloutPad * 2);
-    if (isMobile) calloutW = Math.max(calloutPad * 2 + 60, calloutW - 40);
     calloutRect.setAttribute("width", calloutW);
     calloutRect.setAttribute("height", calloutH);
-    if (isMobile) {
-      const textMax = Math.max(40, calloutW - calloutPad * 2);
-      [calloutTitle, body1].forEach((t) => {
-        t.setAttribute("textLength", textMax);
-        t.setAttribute("lengthAdjust", "spacingAndGlyphs");
-      });
-      body2a.setAttribute("textLength", textMax);
-      body2a.setAttribute("lengthAdjust", "spacingAndGlyphs");
-      body2b.setAttribute("textLength", textMax);
-      body2b.setAttribute("lengthAdjust", "spacingAndGlyphs");
-    }
   };
 
   const calloutPxFor = (x) => {
