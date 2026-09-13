@@ -616,13 +616,16 @@ h1 {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
   z-index: 6;
-  animation: pulse 2.4s ease-out infinite;
   transform: translate(-50%, -50%) translateY(var(--g3-shift));
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
+}
+
+.hotspot.is-pulsing {
+  animation: pulse 2.4s ease-out infinite;
 }
 
 .hotspot::before {

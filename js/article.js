@@ -2041,6 +2041,8 @@ function initGraphic3(root) {
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
+    hotspots.forEach((h) => h.classList.remove("is-pulsing"));
+    hotspot.classList.add("is-pulsing");
     const restart = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     if (restart) {
@@ -2061,6 +2063,7 @@ function initGraphic3(root) {
 
   const hide = () => {
     clearTimeout(showTimer);
+    hotspots.forEach((h) => h.classList.remove("is-pulsing"));
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
   };
