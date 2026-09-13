@@ -1407,12 +1407,18 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     margin-bottom: 20px;
   }
 
-  #chart-1-wrap .chart-canvas,
-  #chart-2-wrap .chart-canvas {
+  #chart-1-wrap .chart-canvas {
     min-height: 0;
     width: calc(100% + 40px);
     margin-left: -20px;
     margin-right: -20px;
+  }
+
+  #chart-2-wrap .chart-canvas {
+    min-height: 0;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   #chart-1-wrap figcaption p {
@@ -1623,9 +1629,9 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
   }
 
   #chart-2-wrap .chart-canvas {
-    width: calc(100% + 56px);
-    margin-left: -28px;
-    margin-right: -28px;
+    width: calc(100% + 16px);
+    margin-left: -8px;
+    margin-right: -8px;
   }
 
   .graphic-chart h3,
