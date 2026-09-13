@@ -110,7 +110,6 @@ h3,
 .maya span,
 .shock em,
 .shock span,
-.graphic-chart figcaption p,
 .source,
 .read-more,
 .site-footer,
@@ -137,7 +136,6 @@ p,
   font-family: Inter, system-ui, sans-serif;
 }
 
-.graphic-chart figcaption p,
 .graphic-3 h3,
 .graphic-chart h3 {
   font-family: "PP Monument Extended", sans-serif;
@@ -148,8 +146,10 @@ p,
   font-weight: 900;
 }
 
-.graphic-chart figcaption p {
-  font-weight: 400;
+.graphic-chart figcaption p,
+.graphic-3 figcaption p {
+  font-family: Inter, system-ui, sans-serif;
+  font-weight: 700;
 }
 
 .artboard-guide {
@@ -194,36 +194,6 @@ p,
   height: 100%;
   object-fit: cover;
   object-position: center 60%;
-}
-
-.graphic-0.anim-hero-frame {
-  opacity: 0;
-  transform: translate3d(0, 96px, 0) rotateX(16deg) rotateZ(-2.4deg) skewX(-6deg) scale(0.88);
-  transform-origin: 50% 100%;
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 1.15s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-}
-
-.graphic-0.anim-hero-frame.is-shown,
-html.no-animate .graphic-0.anim-hero-frame,
-.is-anim-done .graphic-0.anim-hero-frame {
-  opacity: 1;
-  transform: none;
-}
-
-.graphic-0 img.anim-hero-zoom {
-  transform: scale(1.32);
-  transform-origin: center 55%;
-  transition: transform 1.6s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
-}
-
-.graphic-0 img.anim-hero-zoom.is-shown,
-html.no-animate .graphic-0 img.anim-hero-zoom,
-.is-anim-done .graphic-0 img.anim-hero-zoom {
-  transform: scale(1);
 }
 
 .main {
@@ -304,12 +274,9 @@ h1 {
   min-height: 610px; */
 }
 
-#chart-2-wrap figcaption h3 {
-  margin-bottom: 39px;
-}
-
 .graphic-chart h3,
-.graphic-3 h3 {
+.graphic-3 h3,
+.graphic-3 figcaption h3 {
   margin: 0 0 15px;
   color: var(--purple);
   font-size: 20px;
@@ -317,18 +284,15 @@ h1 {
   text-transform: uppercase;
 }
 
-.graphic-chart figcaption p {
+.graphic-chart figcaption p,
+.graphic-3 figcaption p {
   margin: 0 0 28px;
   max-width: 720px;
   color: var(--ink);
   font-family: Inter, system-ui, sans-serif;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 17px;
   line-height: 20px;
-}
-
-#chart-1-wrap figcaption p {
-  font-weight: 700;
 }
 
 .chart-canvas {
@@ -441,17 +405,24 @@ h1 {
   container-type: inline-size;
 }
 
-.graphic-3 h3 {
-  position: absolute;
-  top: var(--g3-pad);
-  left: 6.9%;
+.graphic-3 > figcaption {
+  position: relative;
   z-index: 2;
+  padding: 48px 70px 0;
   margin: 0;
+}
+
+.graphic-3 figcaption h3 {
+  position: static;
+  top: auto;
+  left: auto;
+  z-index: auto;
+  margin: 0 0 15px;
 }
 
 .graphic-3-stage {
   position: relative;
-  margin-top: calc(var(--g3-pad) + var(--g3-gap));
+  margin-top: -80px;
   width: 100%;
   overflow: visible;
   z-index: 1;
@@ -626,7 +597,7 @@ h1 {
 }
 
 .hotspot.is-pulsing {
-  animation: pulse 2.4s ease-out infinite;
+  animation: hotspot-pulse 1.8s ease-out infinite;
 }
 
 .hotspot::before {
@@ -655,6 +626,27 @@ h1 {
 .hs-card { left: 57.14%; top: 83.17%; }
 .hs-bar { left: 76.5%; top: 69.67%; }
 .hs-case { left: 94.06%; top: 52.44%; }
+
+@keyframes hotspot-pulse {
+  0% {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.22),
+      0 0 0 0 rgba(129, 56, 255, 0.7),
+      0 0 0 0 rgba(129, 56, 255, 0.35);
+  }
+  55% {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.22),
+      0 0 0 18px rgba(129, 56, 255, 0),
+      0 0 0 32px rgba(129, 56, 255, 0);
+  }
+  100% {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.22),
+      0 0 0 0 rgba(129, 56, 255, 0),
+      0 0 0 0 rgba(129, 56, 255, 0);
+  }
+}
 
 @keyframes pulse {
   0% {
@@ -809,7 +801,7 @@ h1 {
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: stroke-dashoffset 2.2s cubic-bezier(0.33, 1, 0.32, 1);
 }
 
 .line-draw.is-drawn,
@@ -1042,6 +1034,23 @@ html.no-animate .anim-fade,
   opacity: 1;
 }
 
+/* Body copy: one-shot opacity fade (h1 / h2 / p) — half in view */
+html:not(.no-animate) .article-head h1:not(.is-shown),
+html:not(.no-animate) .article-head .dek:not(.is-shown),
+html:not(.no-animate) .main > h2:not(.is-shown),
+html:not(.no-animate) .main > p:not(.cta-wrap):not(.is-shown) {
+  opacity: 0;
+  transition: none;
+}
+
+html:not(.no-animate) .article-head h1.is-shown,
+html:not(.no-animate) .article-head .dek.is-shown,
+html:not(.no-animate) .main > h2.is-shown,
+html:not(.no-animate) .main > p:not(.cta-wrap).is-shown {
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+
 .maya.anim-rise-block {
   transform: translateY(var(--g3-shift)) translate3d(0, 18px, 0);
 }
@@ -1054,7 +1063,7 @@ html.no-animate .maya.anim-rise-block,
 
 .anim-chrome {
   opacity: 0;
-  transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 1.35s cubic-bezier(0.33, 1, 0.32, 1);
 }
 
 .anim-chrome.is-shown,
@@ -1088,8 +1097,18 @@ html.no-animate .ann-dot.anim-ann,
   pointer-events: none;
 }
 
-.chart-scrubber {
+.chart-pct-label {
+  opacity: 0;
+  transition: opacity 0.25s ease;
   pointer-events: none;
+}
+
+.chart-pct-label.is-active {
+  opacity: 1;
+}
+
+.series.is-off .chart-pct-label {
+  opacity: 0;
 }
 
 .chart-scrubber-handle {
@@ -1177,7 +1196,8 @@ html.no-animate .anim-quote > p::before {
 
 .graphic-chart figcaption h3,
 .graphic-chart figcaption p,
-.graphic-3 > h3,
+.graphic-3 figcaption h3,
+.graphic-3 figcaption p,
 .quote > p {
   overflow: visible;
 }
@@ -1202,7 +1222,6 @@ html:not(.no-animate) .anim-chart:not(.is-in) .line-draw {
 html:not(.no-animate) .anim-chart figcaption h3:not(:has(.anim-rise)),
 html:not(.no-animate) .anim-chart figcaption p:not(:has(.anim-rise-line)),
 html:not(.no-animate) .anim-chart .source.anim-fade:not(.is-shown),
-html:not(.no-animate) .graphic-3 > h3:not(:has(.anim-rise)),
 html:not(.no-animate) .anim-quote > p:not(:has(.anim-rise)) {
   opacity: 0;
 }
@@ -1226,21 +1245,6 @@ html:not(.no-animate) .read-more:not(.anim-rise-block),
 html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
   opacity: 0;
   transform: translate3d(0, 18px, 0);
-  transition: none;
-}
-
-/* Graphic 0: frame rise + image zoom-out, no refresh flash */
-html:not(.no-animate) .graphic-0:not(.is-shown) {
-  opacity: 0;
-  transform: translate3d(0, 96px, 0) rotateX(16deg) rotateZ(-2.4deg) skewX(-6deg) scale(0.88);
-  transform-origin: 50% 100%;
-  transition: none;
-}
-
-html:not(.no-animate) .graphic-0:not(.is-shown) img,
-html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
-  transform: scale(1.32);
-  transform-origin: center 55%;
   transition: none;
 }
 
@@ -1425,7 +1429,8 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     line-height: 18px;
   }
 
-  .graphic-chart figcaption p {
+  .graphic-chart figcaption p,
+  .graphic-3 figcaption p {
     font-size: 14px;
     line-height: 18px;
   }
@@ -1479,8 +1484,8 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     margin: 40px 0;
   }
 
-  #chart-2-wrap figcaption h3 {
-    margin-bottom: 20px;
+  .graphic-3 > figcaption {
+    padding: 0;
   }
 
   #chart-1-wrap .chart-canvas,
@@ -1491,7 +1496,9 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     margin-right: -20px;
   }
 
-  #chart-1-wrap figcaption p {
+  #chart-1-wrap figcaption p,
+  #chart-2-wrap figcaption p,
+  .graphic-3 figcaption p {
     margin-bottom: 20px;
   }
 
@@ -1509,7 +1516,8 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
   }
 
   #chart-1-wrap figcaption p,
-  #chart-2-wrap figcaption p {
+  #chart-2-wrap figcaption p,
+  .graphic-3 figcaption p {
     font-size: 15px;
     line-height: 20px;
   }
@@ -1524,6 +1532,10 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     padding: 0;
     overflow: visible;
     container-type: inline-size;
+  }
+
+  .graphic-3 > figcaption {
+    padding: 28px 20px 0;
   }
 
   .graphic-3-media {
@@ -1556,12 +1568,6 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
     object-fit: cover;
     object-position: 50% 50%;
     transform: translateY(var(--g3-shift));
-  }
-
-  .graphic-3 h3 {
-    left: var(--g3-pad);
-    right: var(--g3-pad);
-    top: var(--g3-pad);
   }
 
   .maya {

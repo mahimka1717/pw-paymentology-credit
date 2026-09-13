@@ -56,8 +56,87 @@ function setAnnDotPulsing(el, on) {
   el.classList.toggle("is-pulsing", !!on);
 }
 
+/** Idle: pulse step groups in a loop. Selection: lock() specific els. */
+function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs = 2400 } = {}) {
+  let timer = 0;
+  let step = 0;
+  let mode = "stop"; // stop | tour | lock
+  const known = new Set();
+
+  const remember = (els) => {
+    (els || []).forEach((el) => {
+      if (el) known.add(el);
+    });
+  };
+
+  const paint = (els) => {
+    const list = (els || []).filter(Boolean);
+    remember(list);
+    remember(getSteps().flat());
+    const on = new Set(list);
+    known.forEach((el) => applyPulse(el, on.has(el)));
+  };
+
+  const clear = () => {
+    remember(getSteps().flat());
+    known.forEach((el) => applyPulse(el, false));
+  };
+
+  const tick = () => {
+    if (mode !== "tour") return;
+    const steps = getSteps().filter((s) => s?.length);
+    if (!steps.length) {
+      clear();
+      return;
+    }
+    if (step >= steps.length) step = 0;
+    paint(steps[step]);
+    step = (step + 1) % steps.length;
+  };
+
+  const stopTimer = () => {
+    if (!timer) return;
+    window.clearInterval(timer);
+    timer = 0;
+  };
+
+  const startTour = () => {
+    mode = "tour";
+    stopTimer();
+    step = 0;
+    tick();
+    timer = window.setInterval(tick, intervalMs);
+  };
+
+  const lock = (els) => {
+    mode = "lock";
+    stopTimer();
+    paint(els || []);
+  };
+
+  const stop = () => {
+    mode = "stop";
+    stopTimer();
+    clear();
+  };
+
+  return { startTour, lock, stop, clear };
+}
+
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function visibleRatio(el) {
+  const rect = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+  if (vw <= 0 || vh <= 0 || rect.width <= 0 || rect.height <= 0) return 0;
+  const visibleH = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+  const visibleW = Math.min(rect.right, vw) - Math.max(rect.left, 0);
+  if (visibleH <= 0 || visibleW <= 0) return 0;
+  // Tall blocks can't reach high intersectionRatio; treat vs min(block, viewport)
+  return Math.min(1, visibleH / Math.min(rect.height, vh));
 }
 
 function whenInView(el, onEnter, threshold = 0.12) {
@@ -77,27 +156,27 @@ function whenInView(el, onEnter, threshold = 0.12) {
     io.disconnect();
   };
 
+  const steps = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 1];
+  if (!steps.includes(threshold)) steps.push(threshold);
+  steps.sort((a, b) => a - b);
+
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
-        if (e.isIntersecting) run();
+        if (!e.isIntersecting) return;
+        // Prefer IO ratio; fall back to tall-block friendly measure
+        const ratio = Math.max(e.intersectionRatio, visibleRatio(el));
+        if (ratio >= threshold) run();
       });
     },
-    // Low threshold: tall mobile blocks rarely reach 0.22 visible ratio
-    { threshold: [0, 0.01, 0.08, threshold], rootMargin: "0px 0px -4% 0px" }
+    { threshold: steps, rootMargin: "0px" }
   );
   io.observe(el);
 
   // Safari often skips the initial IO callback for already-visible nodes
   const checkNow = () => {
     if (done) return;
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
-    if (vw <= 0 || vh <= 0) return;
-    const visibleH = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
-    const visibleW = Math.min(rect.right, vw) - Math.max(rect.left, 0);
-    if (visibleH > 8 && visibleW > 8) run();
+    if (visibleRatio(el) >= threshold) run();
   };
   requestAnimationFrame(() => {
     checkNow();
@@ -307,8 +386,8 @@ async function playChartSequence({
   dots = [],
   ann = [],
   extraFinal = [],
-  lineGap = 380,
-  lineDuration = 1400,
+  lineGap = 900,
+  lineDuration = 2200,
   dotStagger = 28,
 }) {
   const finish = () => {
@@ -336,7 +415,7 @@ async function playChartSequence({
     sourceEl.classList.add("anim-fade");
     wait(380).then(() => showEl(sourceEl));
   }
-  await wait(420);
+  await wait(980);
   for (let i = 0; i < lines.length; i++) {
     lines[i].classList.add("is-drawn");
     if (i < lines.length - 1) await wait(lineGap);
@@ -807,20 +886,32 @@ function drawChart1(root) {
 
   let activeAnn = -1;
 
-  const clearAnnPulses = () => {
-    annDots.forEach((pair) => {
-      setAnnDotPulsing(pair.all, false);
-      setAnnDotPulsing(pair.fico, false);
-    });
-  };
+  const pulseTour = createPulseTour({
+    getSteps: () =>
+      annDots
+        .map((pair) => {
+          const els = [];
+          if (seriesOn.all) els.push(pair.all);
+          if (seriesOn.fico) els.push(pair.fico);
+          return els;
+        })
+        .filter((els) => els.length),
+  });
 
-  const pulseActiveAnn = () => {
-    clearAnnPulses();
-    if (activeAnn < 0) return;
-    const pair = annDots[activeAnn];
-    if (!pair) return;
-    if (seriesOn.all) setAnnDotPulsing(pair.all, true);
-    if (seriesOn.fico) setAnnDotPulsing(pair.fico, true);
+  const pulseSelectedOrTour = () => {
+    if (activeAnn >= 0) {
+      const pair = annDots[activeAnn];
+      if (!pair) {
+        pulseTour.startTour();
+        return;
+      }
+      const els = [];
+      if (seriesOn.all) els.push(pair.all);
+      if (seriesOn.fico) els.push(pair.fico);
+      pulseTour.lock(els);
+      return;
+    }
+    pulseTour.startTour();
   };
 
   const showAnn = (i) => {
@@ -830,14 +921,14 @@ function drawChart1(root) {
     alignPopup(i === 0 ? "April" : "July", i === 1);
     g.classList.add("is-visible");
     annGuides[i].classList.add("is-visible");
-    pulseActiveAnn();
+    pulseSelectedOrTour();
   };
 
   const hideAnn = () => {
     activeAnn = -1;
     g.classList.remove("is-visible");
     annGuides.forEach((guide) => guide.classList.remove("is-visible"));
-    clearAnnPulses();
+    pulseTour.startTour();
   };
 
   bindHoverOrTap(annHotspots, {
@@ -946,7 +1037,7 @@ function drawChart1(root) {
       annGuides.forEach((guide) => guide.classList.remove("is-visible"));
       activeAnn = -1;
     }
-    pulseActiveAnn();
+    pulseSelectedOrTour();
   };
   const toggleSeries = (key) => setSeriesVisible(key, !seriesOn[key]);
   const bindLegend = (el, key) => {
@@ -986,12 +1077,13 @@ function drawChart1(root) {
       subEl,
       sourceEl,
       chrome: [...svg.querySelectorAll(".anim-chrome")],
-      lines: [ficoLine, allLine],
+      lines: [allLine, ficoLine],
       dots: [...svg.querySelectorAll(".anim-dot")],
       ann: [...svg.querySelectorAll(".anim-ann"), ...annLayer.querySelectorAll(".ann-dot")],
-      lineGap: 500,
+      lineGap: 1000,
     });
-  });
+    pulseTour.startTour();
+  }, 0.5);
 }
 
 function drawChart2(root) {
@@ -1299,18 +1391,31 @@ function drawChart2(root) {
     callout.style.left = `${(calloutPxFor(x) / w) * 100}%`;
   };
 
-  const clearAnnPulses = () => {
-    chart2AnnDots.forEach(({ pulseDots }) => {
-      pulseDots.forEach(({ el }) => setAnnDotPulsing(el, false));
-    });
+  let pulseTour = null;
+  let calloutOpen = false;
+  let calloutQuarter = -1;
+
+  const pulseSelectedOrTour = () => {
+    if (!pulseTour) return;
+    if (calloutOpen && calloutQuarter >= 0) {
+      const item = chart2AnnDots.find((d) => d.i === calloutQuarter);
+      const els = item
+        ? item.pulseDots.filter(({ key }) => seriesOn[key]).map(({ el }) => el)
+        : [];
+      pulseTour.lock(els);
+    } else {
+      pulseTour.startTour();
+    }
+    syncPctLabels();
   };
 
-  const pulseQuarter = (i) => {
-    clearAnnPulses();
-    const item = chart2AnnDots.find((d) => d.i === i);
-    if (!item) return;
-    item.pulseDots.forEach(({ key, el }) => {
-      if (seriesOn[key]) setAnnDotPulsing(el, true);
+  const syncPctLabels = () => {
+    chart2AnnDots.forEach(({ i, pulseDots }) => {
+      const active = calloutOpen && calloutQuarter === i;
+      pulseDots.forEach(({ key, label }) => {
+        if (!label) return;
+        label.classList.toggle("is-active", !!(active && seriesOn[key]));
+      });
     });
   };
 
@@ -1322,12 +1427,16 @@ function drawChart2(root) {
     placeCalloutPanel(x);
     moveScrubberTo(x, { animate });
     callout.classList.add("is-visible");
-    pulseQuarter(i);
+    calloutOpen = true;
+    calloutQuarter = i;
+    pulseSelectedOrTour();
   };
 
   const hideCallout = () => {
     callout.classList.remove("is-visible");
-    clearAnnPulses();
+    calloutOpen = false;
+    calloutQuarter = -1;
+    pulseSelectedOrTour();
   };
 
   const seriesOn = { accept: true, apply: true };
@@ -1338,9 +1447,8 @@ function drawChart2(root) {
     const pulseDots = [];
     if (labeledA[i]) {
       const [x, y] = acceptPts[i];
-      pulseDots.push({ key: "accept", el: makeAnnDot(annLayer, w, h, x, y, PURPLE), x, y });
       const t = svgEl("text", {
-        class: "anim-ann chart-pct-label",
+        class: "chart-pct-label",
         x,
         y: y - (isMobile ? 14 : 18),
         fill: PURPLE,
@@ -1355,12 +1463,18 @@ function drawChart2(root) {
       });
       t.textContent = labeledA[i];
       acceptG.appendChild(t);
+      pulseDots.push({
+        key: "accept",
+        el: makeAnnDot(annLayer, w, h, x, y, PURPLE),
+        x,
+        y,
+        label: t,
+      });
     }
     if (labeledB[i]) {
       const [x, y] = applyPts[i];
-      pulseDots.push({ key: "apply", el: makeAnnDot(annLayer, w, h, x, y, PINK), x, y });
       const t = svgEl("text", {
-        class: "anim-ann chart-pct-label",
+        class: "chart-pct-label",
         x: i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
         y: i === 2 ? y + 7 : y + (isMobile ? 26 : 32),
         fill: PINK,
@@ -1375,8 +1489,25 @@ function drawChart2(root) {
       });
       t.textContent = labeledB[i];
       applyG.appendChild(t);
+      pulseDots.push({
+        key: "apply",
+        el: makeAnnDot(annLayer, w, h, x, y, PINK),
+        x,
+        y,
+        label: t,
+      });
     }
     chart2AnnDots.push({ i, pulseDots });
+  });
+
+  pulseTour = createPulseTour({
+    // Same quarter (same x) pulses together
+    getSteps: () =>
+      chart2AnnDots
+        .map(({ pulseDots }) =>
+          pulseDots.filter(({ key }) => seriesOn[key]).map(({ el }) => el)
+        )
+        .filter((els) => els.length),
   });
 
   const snapQuarter = (x) => {
@@ -1402,6 +1533,7 @@ function drawChart2(root) {
   };
 
   let currentScrub = scrubIdx;
+  let committedScrub = scrubIdx;
 
   const clampScrubX = (x) => Math.min(cxAt(n - 1), Math.max(cxAt(0), x));
 
@@ -1409,6 +1541,7 @@ function drawChart2(root) {
     (seriesOn.accept && labeledA[i]) || (seriesOn.apply && labeledB[i]);
 
   const applyScrubberAt = (i, { animate = false } = {}) => {
+    committedScrub = i;
     currentScrub = i;
     const x = cxAt(i);
     if (quarterHasActive(i)) showCalloutAt(i, x, { animate });
@@ -1428,7 +1561,9 @@ function drawChart2(root) {
       body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
       placeCalloutPanel(clamped);
       callout.classList.add("is-visible");
-      pulseQuarter(i);
+      calloutOpen = true;
+      calloutQuarter = i;
+      pulseSelectedOrTour();
     } else {
       hideCallout();
     }
@@ -1740,6 +1875,12 @@ function drawChart2(root) {
         "data-series": key,
       });
       hit.addEventListener("pointerdown", (e) => e.stopPropagation());
+      hit.addEventListener("pointerenter", (e) => {
+        if (e.pointerType === "touch" || dragging || !seriesOn[key]) return;
+        if (i === committedScrub) return;
+        applyScrubberAt(i, { animate: true });
+        scrubRail.setAttribute("aria-valuenow", String(i));
+      });
       hit.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1776,8 +1917,9 @@ function drawChart2(root) {
       }
     });
     if (wrap.classList.contains("is-anim-done") || !ANIM_ON) {
-      applyScrubberAt(currentScrub);
+      applyScrubberAt(committedScrub);
     }
+    pulseSelectedOrTour();
   };
 
   const toggleSeries = (key) => setSeriesVisible(key, !seriesOn[key]);
@@ -1834,7 +1976,8 @@ function drawChart2(root) {
       extraFinal: [],
     });
     applyScrubberAt(scrubIdx);
-  });
+    pulseSelectedOrTour();
+  }, 0.5);
 }
 
 function mountChart(root, draw) {
@@ -1995,8 +2138,7 @@ function initGraphic3(root) {
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
-    hotspots.forEach((h) => h.classList.remove("is-pulsing"));
-    hotspot.classList.add("is-pulsing");
+    pulseTour.lock([hotspot]);
     const restart = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     if (restart) {
@@ -2017,9 +2159,9 @@ function initGraphic3(root) {
 
   const hide = () => {
     clearTimeout(showTimer);
-    hotspots.forEach((h) => h.classList.remove("is-pulsing"));
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
+    pulseTour.startTour();
   };
 
   hotspots.forEach((hotspot) => {
@@ -2032,20 +2174,30 @@ function initGraphic3(root) {
     hide,
   });
 
+  const pulseTour = createPulseTour({
+    getSteps: () => hotspots.map((h) => [h]),
+    applyPulse: (el, on) => el.classList.toggle("is-pulsing", !!on),
+    intervalMs: 1800,
+  });
+
   root.classList.add("anim-chart");
-  const g3Title = root.querySelector("h3");
+  const g3Title = root.querySelector("figcaption h3") || root.querySelector("h3");
+  const g3Sub = root.querySelector("figcaption p");
   const maya = root.querySelector(".maya");
   hotspots.forEach((h) => h.classList.add("anim-ann"));
   armRiseText(g3Title);
+  armRiseLines(g3Sub);
   if (ANIM_ON && maya) maya.classList.add("anim-rise-block");
 
   whenInView(root, async () => {
     if (!ANIM_ON) {
       root.classList.add("is-anim-done");
       hotspots.forEach(showEl);
+      pulseTour.startTour();
       return;
     }
     await playRiseText(g3Title, { stagger: 42 });
+    if (g3Sub) await playRiseLines(g3Sub, { stagger: 140, startDelay: 80 });
     if (maya) {
       await wait(120);
       maya.classList.add("is-shown");
@@ -2057,7 +2209,8 @@ function initGraphic3(root) {
     }
     await wait(200);
     root.classList.add("is-anim-done");
-  });
+    pulseTour.startTour();
+  }, 0.5);
 }
 
 function initQuotes() {
@@ -2096,11 +2249,34 @@ function initQuotes() {
         await wait(220);
       }
       quote.classList.add("is-anim-done");
-    });
+    }, 0.5);
   });
 }
 
 initQuotes();
+
+function initCopyFade() {
+  const main = document.querySelector(".main");
+  if (!main) return;
+  const els = [
+    ...main.querySelectorAll(".article-head h1, .article-head .dek"),
+    ...main.querySelectorAll(":scope > h2"),
+    ...[...main.querySelectorAll(":scope > p")].filter(
+      (p) => !p.classList.contains("cta-wrap") && !p.classList.contains("source")
+    ),
+  ];
+  els.forEach((el) => {
+    whenInView(
+      el,
+      () => {
+        el.classList.add("is-shown");
+      },
+      0.5
+    );
+  });
+}
+
+initCopyFade();
 
 function initReadMore() {
   const btn = document.querySelector(".read-more");
@@ -2121,24 +2297,9 @@ function initGraphic0() {
   const el = document.querySelector(".graphic-0");
   const img = el?.querySelector("img");
   if (!el || !img) return;
-  if (ANIM_ON) {
-    el.classList.add("anim-hero-frame");
-    img.classList.add("anim-hero-zoom");
-  }
-  whenInView(
-    el,
-    async () => {
-      if (!ANIM_ON) {
-        el.classList.add("is-shown", "is-anim-done");
-        img.classList.add("is-shown");
-        return;
-      }
-      await wait(120);
-      el.classList.add("is-shown");
-      img.classList.add("is-shown");
-    },
-    0.12
-  );
+  // Client: no entrance animation on graphic-0 (mobile + desktop)
+  el.classList.add("is-shown", "is-anim-done");
+  img.classList.add("is-shown");
 }
 
 initGraphic0();
