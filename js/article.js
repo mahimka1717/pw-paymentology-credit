@@ -7,10 +7,9 @@ const GRID = "#c8c8dc";
 const INK = "#15154d";
 
 const animParams = new URLSearchParams(window.location.search);
-const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function animationsEnabled() {
-  if (prefersReducedMotion) return false;
+  // Opt out only via URL; keep motion on by default (incl. iOS Safari)
   if (animParams.get("animate") === "no") return false;
   if (window.matchMedia("(max-width: 860px)").matches && animParams.get("mobileanimate") === "no") {
     return false;
@@ -51,25 +50,51 @@ function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function whenInView(el, onEnter, threshold = 0.22) {
+function whenInView(el, onEnter, threshold = 0.12) {
   if (!el) return;
   if (!ANIM_ON) {
     el.classList.add("is-in", "is-anim-done");
     onEnter?.(el);
     return;
   }
+
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    el.classList.add("is-in");
+    onEnter?.(el);
+    io.disconnect();
+  };
+
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
-        if (!e.isIntersecting) return;
-        el.classList.add("is-in");
-        onEnter?.(el);
-        io.unobserve(el);
+        if (e.isIntersecting) run();
       });
     },
-    { threshold, rootMargin: "0px 0px -6% 0px" }
+    // Low threshold: tall mobile blocks rarely reach 0.22 visible ratio
+    { threshold: [0, 0.01, 0.08, threshold], rootMargin: "0px 0px -4% 0px" }
   );
   io.observe(el);
+
+  // Safari often skips the initial IO callback for already-visible nodes
+  const checkNow = () => {
+    if (done) return;
+    const rect = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    if (vw <= 0 || vh <= 0) return;
+    const visibleH = Math.min(rect.bottom, vh) - Math.max(rect.top, 0);
+    const visibleW = Math.min(rect.right, vw) - Math.max(rect.left, 0);
+    if (visibleH > 8 && visibleW > 8) run();
+  };
+  requestAnimationFrame(() => {
+    checkNow();
+    requestAnimationFrame(checkNow);
+  });
+  window.setTimeout(checkNow, 100);
+  window.setTimeout(checkNow, 400);
 }
 
 /** Split element text into word spans for rise-in animation. Keeps <br>. */

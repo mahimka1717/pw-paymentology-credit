@@ -1172,27 +1172,6 @@ html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
   display: block;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .anim-rise,
-  .anim-rise-block,
-  .anim-fade,
-  .anim-chrome,
-  .anim-ann,
-  .anim-dot,
-  .line-draw,
-  .anim-quote > p::before,
-  .anim-author-photo,
-  .anim-author-line,
-  .graphic-0.anim-hero-frame,
-  .graphic-0 img.anim-hero-zoom {
-    transition: none !important;
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    stroke-dashoffset: 0 !important;
-  }
-}
-
 .chart-legend {
   cursor: pointer;
   outline: none;
