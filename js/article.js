@@ -30,26 +30,30 @@ function polyline(points) {
   return points.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
-/** Same HTML pulse dots as graphic 3 (box-shadow) — works in mobile Safari unlike SVG transform pulses. */
-function makeAnnDot(parent, x, y, color, _filterId) {
-  const g = svgEl("g", { class: "ann-dot", transform: `translate(${x} ${y})` });
-  const fo = svgEl("foreignObject", {
-    class: "ann-dot__fo",
-    x: -20,
-    y: -20,
-    width: 40,
-    height: 40,
-  });
-  const host = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  host.className = "ann-dot__fo-host";
-  const dot = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  dot.className = "ann-dot__html";
-  dot.style.setProperty("--ann-color", color);
-  host.appendChild(dot);
-  fo.appendChild(host);
-  g.appendChild(fo);
-  parent.appendChild(g);
-  return g;
+/** HTML dots like graphic-3 .hotspot (box-shadow pulse) — overlay, not foreignObject. */
+function makeAnnDotLayer(host, svgW, svgH) {
+  const layer = document.createElement("div");
+  layer.className = "ann-dot-layer";
+  layer.style.aspectRatio = `${svgW} / ${svgH}`;
+  host.appendChild(layer);
+  return layer;
+}
+
+function makeAnnDot(layer, svgW, svgH, x, y, color) {
+  const el = document.createElement("div");
+  el.className = "ann-dot";
+  el.style.setProperty("--ann-color", color);
+  el.style.left = `${(x / svgW) * 100}%`;
+  el.style.top = `${(y / svgH) * 100}%`;
+  el.dataset.x = String(x);
+  el.dataset.y = String(y);
+  layer.appendChild(el);
+  return el;
+}
+
+function setAnnDotPulsing(el, on) {
+  if (!el) return;
+  el.classList.toggle("is-pulsing", !!on);
 }
 
 function wait(ms) {
@@ -612,11 +616,12 @@ function drawChart1(root) {
   const dots = allPts.map((p, i) => [p, ficoPts[i]]);
   const annHotspots = [];
   const annDots = [];
+  const annLayer = makeAnnDotLayer(root, w, h);
   annIdx.forEach((i) => {
     const [a, f] = dots[i];
     const hotspot = svgEl("g", { class: "ann-hotspot" });
-    const allDot = makeAnnDot(allG, a[0], a[1], PURPLE, "dot-shadow");
-    const ficoDot = makeAnnDot(ficoG, f[0], f[1], PURPLE_SOFT, "dot-shadow");
+    const allDot = makeAnnDot(annLayer, w, h, a[0], a[1], PURPLE);
+    const ficoDot = makeAnnDot(annLayer, w, h, f[0], f[1], PURPLE_SOFT);
     annDots.push({ all: allDot, fico: ficoDot });
     const minY = Math.min(a[1], f[1]);
     const maxY = Math.max(a[1], f[1]);
@@ -804,8 +809,8 @@ function drawChart1(root) {
 
   const clearAnnPulses = () => {
     annDots.forEach((pair) => {
-      pair.all.classList.remove("is-pulsing");
-      pair.fico.classList.remove("is-pulsing");
+      setAnnDotPulsing(pair.all, false);
+      setAnnDotPulsing(pair.fico, false);
     });
   };
 
@@ -814,8 +819,8 @@ function drawChart1(root) {
     if (activeAnn < 0) return;
     const pair = annDots[activeAnn];
     if (!pair) return;
-    if (seriesOn.all) pair.all.classList.add("is-pulsing");
-    if (seriesOn.fico) pair.fico.classList.add("is-pulsing");
+    if (seriesOn.all) setAnnDotPulsing(pair.all, true);
+    if (seriesOn.fico) setAnnDotPulsing(pair.fico, true);
   };
 
   const showAnn = (i) => {
@@ -878,8 +883,8 @@ function drawChart1(root) {
   l2.textContent = isMobile ? "FICO <580" : "FICO <580 (highest-risk)";
   legendFico.appendChild(l2);
   svg.append(legendAll, legendFico);
-
   root.appendChild(svg);
+  root.appendChild(annLayer);
   alignPopup("April");
   if (document.fonts?.ready) {
     document.fonts.ready.then(() =>
@@ -933,6 +938,9 @@ function drawChart1(root) {
     layer.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
+    annDots.forEach((pair) => {
+      pair[key].classList.toggle("is-off", !on);
+    });
     if (!on) {
       g.classList.remove("is-visible");
       annGuides.forEach((guide) => guide.classList.remove("is-visible"));
@@ -980,7 +988,7 @@ function drawChart1(root) {
       chrome: [...svg.querySelectorAll(".anim-chrome")],
       lines: [ficoLine, allLine],
       dots: [...svg.querySelectorAll(".anim-dot")],
-      ann: [...svg.querySelectorAll(".anim-ann")],
+      ann: [...svg.querySelectorAll(".anim-ann"), ...annLayer.querySelectorAll(".ann-dot")],
       lineGap: 500,
     });
   });
@@ -1352,7 +1360,7 @@ function drawChart2(root) {
 
   const clearAnnPulses = () => {
     chart2AnnDots.forEach(({ pulseDots }) => {
-      pulseDots.forEach(({ el }) => el.classList.remove("is-pulsing"));
+      pulseDots.forEach(({ el }) => setAnnDotPulsing(el, false));
     });
   };
 
@@ -1361,7 +1369,7 @@ function drawChart2(root) {
     const item = chart2AnnDots.find((d) => d.i === i);
     if (!item) return;
     item.pulseDots.forEach(({ key, el }) => {
-      if (seriesOn[key]) el.classList.add("is-pulsing");
+      if (seriesOn[key]) setAnnDotPulsing(el, true);
     });
   };
 
@@ -1385,12 +1393,13 @@ function drawChart2(root) {
 
   const seriesOn = { accept: true, apply: true };
   const chart2AnnDots = [];
+  const annLayer = makeAnnDotLayer(root, w, h);
 
   activeIdx.forEach((i) => {
     const pulseDots = [];
     if (labeledA[i]) {
       const [x, y] = acceptPts[i];
-      pulseDots.push({ key: "accept", el: makeAnnDot(acceptG, x, y, PURPLE, "dot-shadow-2") });
+      pulseDots.push({ key: "accept", el: makeAnnDot(annLayer, w, h, x, y, PURPLE), x, y });
       const t = svgEl("text", {
         class: "anim-ann chart-pct-label",
         x,
@@ -1410,7 +1419,7 @@ function drawChart2(root) {
     }
     if (labeledB[i]) {
       const [x, y] = applyPts[i];
-      pulseDots.push({ key: "apply", el: makeAnnDot(applyG, x, y, PINK, "dot-shadow-2") });
+      pulseDots.push({ key: "apply", el: makeAnnDot(annLayer, w, h, x, y, PINK), x, y });
       const t = svgEl("text", {
         class: "anim-ann chart-pct-label",
         x: i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
@@ -1783,15 +1792,12 @@ function drawChart2(root) {
   // Hit targets above scrub rail so annotated dots stay tappable
   const annScrubHits = [];
   chart2AnnDots.forEach(({ i, pulseDots }) => {
-    pulseDots.forEach(({ key, el }) => {
+    pulseDots.forEach(({ key, el, x, y }) => {
       el.classList.add("ann-dot--scrub");
-      const tr = el.getAttribute("transform") || "";
-      const m = tr.match(/translate\(\s*([-.\d]+)[ ,]+([-.\d]+)/);
-      if (!m) return;
       const hit = svgEl("circle", {
         class: "ann-dot-scrub-hit",
-        cx: m[1],
-        cy: m[2],
+        cx: x,
+        cy: y,
         r: isMobile ? 22 : 16,
         fill: "transparent",
         "data-series": key,
@@ -1811,6 +1817,7 @@ function drawChart2(root) {
   svg.append(legendAccept, legendApply);
   svg.appendChild(g);
   root.appendChild(svg);
+  root.appendChild(annLayer);
 
   const setSeriesVisible = (key, on) => {
     seriesOn[key] = on;
@@ -1821,6 +1828,11 @@ function drawChart2(root) {
     axis.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
+    chart2AnnDots.forEach(({ pulseDots }) => {
+      pulseDots.forEach(({ key: k, el }) => {
+        if (k === key) el.classList.toggle("is-off", !on);
+      });
+    });
     annScrubHits.forEach((hit) => {
       if (hit.getAttribute("data-series") === key) {
         hit.style.pointerEvents = on ? "all" : "none";
@@ -1882,7 +1894,7 @@ function drawChart2(root) {
       chrome: [...svg.querySelectorAll(".anim-chrome")],
       lines: [acceptLine, applyLine],
       dots: [...svg.querySelectorAll(".anim-dot")],
-      ann: [...svg.querySelectorAll(".anim-ann")],
+      ann: [...svg.querySelectorAll(".anim-ann"), ...annLayer.querySelectorAll(".ann-dot")],
       extraFinal: [],
     });
     applyScrubberAt(scrubIdx);

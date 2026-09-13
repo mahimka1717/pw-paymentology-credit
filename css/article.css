@@ -332,6 +332,7 @@ h1 {
 }
 
 .chart-canvas {
+  position: relative;
   width: 100%;
   min-height: 320px;
 }
@@ -870,32 +871,29 @@ html.no-animate .anim-dot,
   -webkit-tap-highlight-color: transparent;
 }
 
-.ann-dot__fo {
-  overflow: visible;
+.ann-dot-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
   pointer-events: none;
+  z-index: 5;
 }
 
-.ann-dot__fo-host {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-/* Match graphic-3 .hotspot look + pulse (Safari-friendly box-shadow) */
-.ann-dot__html {
-  position: relative;
+/* Same look + pulse as graphic-3 .hotspot */
+.ann-dot {
+  position: absolute;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
-  flex: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.ann-dot__html::after {
+.ann-dot::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -908,13 +906,14 @@ html.no-animate .anim-dot,
   pointer-events: none;
 }
 
-.ann-dot.is-pulsing .ann-dot__html {
-  /* Same keyframes as graphic-3 .hotspot.is-pulsing */
+.ann-dot.is-pulsing {
   animation: pulse 2.4s ease-out infinite;
 }
 
-#chart-2 .ann-dot--scrub {
-  pointer-events: none;
+.ann-dot.is-off {
+  opacity: 0 !important;
+  visibility: hidden;
+  animation: none !important;
 }
 
 #chart-2 .ann-dot-scrub-hit {
@@ -922,13 +921,6 @@ html.no-animate .anim-dot,
   pointer-events: all;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ann-dot.is-pulsing .ann-dot__html,
-  .hotspot.is-pulsing {
-    animation: none;
-  }
 }
 
 /* ——— Entrance animations (FT / Pictet style) ——— */
@@ -1009,8 +1001,16 @@ html.no-animate .anim-ann,
   pointer-events: auto;
 }
 
-html:not(.no-animate) .hotspot.anim-ann:not(.is-shown) {
+html:not(.no-animate) .hotspot.anim-ann:not(.is-shown),
+html:not(.no-animate) .ann-dot.anim-ann:not(.is-shown) {
   animation: none !important;
+}
+
+.ann-dot.anim-ann,
+.ann-dot.anim-ann.is-shown,
+html.no-animate .ann-dot.anim-ann,
+.is-anim-done .ann-dot.anim-ann {
+  pointer-events: none;
 }
 
 .chart-scrubber {
