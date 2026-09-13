@@ -774,8 +774,7 @@ function drawChart1(root) {
       // Keep April/July clearly apart on narrow mobile plots (avoid same clamped X)
       const span = Math.max(0, plotR - plotL - calloutW);
       const targetLeft = plotL + (isJuly ? span : 0);
-      const dy = isJuly ? 14 : 0;
-      panel.setAttribute("transform", `translate(${targetLeft - cx}, ${dy})`);
+      panel.setAttribute("transform", `translate(${targetLeft - cx}, 0)`);
       return;
     }
     const monthW = monthLabel.getComputedTextLength();
