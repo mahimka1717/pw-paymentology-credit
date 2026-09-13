@@ -1218,7 +1218,7 @@ function drawChart2(root) {
   svg.appendChild(scrubHandle);
 
   const calloutPad = isMobile ? 16 : 22;
-  let calloutW = isMobile ? 180 : 200;
+  let calloutW = isMobile ? 140 : 200;
   const g = svgEl("g", { class: "callout-box callout-box--hover" });
   const panel = svgEl("g", { class: "callout-panel" });
   const titleY = calloutPad + (isMobile ? 13 : 15);
@@ -1308,8 +1308,20 @@ function drawChart2(root) {
       body2b.getComputedTextLength()
     );
     calloutW = Math.ceil(contentW + calloutPad * 2);
+    if (isMobile) calloutW = Math.max(calloutPad * 2 + 60, calloutW - 40);
     calloutRect.setAttribute("width", calloutW);
     calloutRect.setAttribute("height", calloutH);
+    if (isMobile) {
+      const textMax = Math.max(40, calloutW - calloutPad * 2);
+      [calloutTitle, body1].forEach((t) => {
+        t.setAttribute("textLength", textMax);
+        t.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      });
+      body2a.setAttribute("textLength", textMax);
+      body2a.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      body2b.setAttribute("textLength", textMax);
+      body2b.setAttribute("lengthAdjust", "spacingAndGlyphs");
+    }
   };
 
   const calloutPxFor = (x) => {
