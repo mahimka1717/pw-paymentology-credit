@@ -6,6 +6,21 @@ const BLUE = "#3a4ea1";
 const GRID = "#c8c8dc";
 const INK = "#15154d";
 
+const animParams = new URLSearchParams(window.location.search);
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function animationsEnabled() {
+  if (prefersReducedMotion) return false;
+  if (animParams.get("animate") === "no") return false;
+  if (window.matchMedia("(max-width: 860px)").matches && animParams.get("mobileanimate") === "no") {
+    return false;
+  }
+  return true;
+}
+
+const ANIM_ON = animationsEnabled();
+if (!ANIM_ON) document.documentElement.classList.add("no-animate");
+
 function svgEl(name, attrs = {}) {
   const el = document.createElementNS("http://www.w3.org/2000/svg", name);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
@@ -30,6 +45,280 @@ function makeAnnDot(parent, x, y, color, filterId) {
   g.appendChild(svgEl("circle", { class: "ann-dot__core", r: "6", fill: color }));
   parent.appendChild(g);
   return g;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function whenInView(el, onEnter, threshold = 0.22) {
+  if (!el) return;
+  if (!ANIM_ON) {
+    el.classList.add("is-in", "is-anim-done");
+    onEnter?.(el);
+    return;
+  }
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        el.classList.add("is-in");
+        onEnter?.(el);
+        io.unobserve(el);
+      });
+    },
+    { threshold, rootMargin: "0px 0px -6% 0px" }
+  );
+  io.observe(el);
+}
+
+/** Split element text into word spans for rise-in animation. Keeps <br>. */
+function prepareRiseText(el) {
+  if (!el || el.dataset.riseReady) return [...el.querySelectorAll(".anim-rise")];
+  el.dataset.riseReady = "1";
+  const nodes = [...el.childNodes];
+  el.textContent = "";
+  const spans = [];
+  nodes.forEach((node) => {
+    if (node.nodeName === "BR") {
+      el.appendChild(document.createElement("br"));
+      return;
+    }
+    if (node.nodeType !== Node.TEXT_NODE) {
+      el.appendChild(node);
+      return;
+    }
+    const parts = node.textContent.split(/(\s+)/);
+    parts.forEach((part) => {
+      if (!part) return;
+      if (/^\s+$/.test(part)) {
+        el.appendChild(document.createTextNode(part));
+        return;
+      }
+      const span = document.createElement("span");
+      span.className = "anim-rise";
+      span.textContent = part;
+      el.appendChild(span);
+      spans.push(span);
+    });
+  });
+  return spans;
+}
+
+async function playRiseText(el, { stagger = 38, startDelay = 0 } = {}) {
+  if (!el) return;
+  if (!ANIM_ON) {
+    el.classList.add("is-shown");
+    prepareRiseText(el).forEach((s) => s.classList.add("is-shown"));
+    return;
+  }
+  const spans = prepareRiseText(el);
+  await wait(startDelay);
+  for (let i = 0; i < spans.length; i++) {
+    spans[i].classList.add("is-shown");
+    if (i < spans.length - 1) await wait(stagger);
+  }
+  await wait(280);
+}
+
+/** Hide title/sub copy as rise-spans before the block enters the viewport. */
+function armRiseText(...els) {
+  if (!ANIM_ON) return;
+  els.forEach((el) => {
+    if (el) prepareRiseText(el);
+  });
+}
+
+/** Split element into visual lines using the browser's real wrap (block rise). */
+function prepareRiseLines(el) {
+  if (!el) return [];
+  if (el.dataset.riseReady === "lines") return [...el.querySelectorAll(".anim-rise-line")];
+  el.dataset.riseReady = "lines";
+
+  const raw = el.innerText.replace(/\s+/g, " ").trim();
+  if (!raw) return [];
+
+  // Measure with full text in place so wrap matches final layout
+  el.textContent = raw;
+  const textNode = el.firstChild;
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return [];
+
+  const range = document.createRange();
+  const starts = [0];
+  let prevTop = null;
+
+  for (let i = 0; i < raw.length; i++) {
+    range.setStart(textNode, i);
+    range.setEnd(textNode, i + 1);
+    const r = range.getBoundingClientRect();
+    if (!r.height && !r.width) continue;
+    if (prevTop !== null && Math.abs(r.top - prevTop) > 2) {
+      starts.push(i);
+    }
+    prevTop = r.top;
+  }
+
+  const lineStrings = starts
+    .map((start, idx) => {
+      const end = starts[idx + 1] ?? raw.length;
+      return raw.slice(start, end).trim();
+    })
+    .filter(Boolean);
+
+  el.textContent = "";
+  return lineStrings.map((str) => {
+    const line = document.createElement("span");
+    line.className = "anim-rise-line anim-rise-block";
+    line.style.display = "block";
+    line.textContent = str;
+    el.appendChild(line);
+    return line;
+  });
+}
+
+function armRiseLines(...els) {
+  if (!ANIM_ON) return;
+  const armOne = (el) => {
+    if (!el) return;
+    if (el.dataset.riseReady === "lines") {
+      const text = [...el.querySelectorAll(".anim-rise-line")].map((s) => s.textContent).join(" ");
+      el.textContent = text;
+      delete el.dataset.riseReady;
+    }
+    prepareRiseLines(el);
+  };
+  els.forEach(armOne);
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      els.forEach((el) => {
+        if (!el || el.closest(".is-in, .is-anim-done")) return;
+        armOne(el);
+      });
+    });
+  }
+}
+
+async function playRiseLines(el, { stagger = 140, startDelay = 0 } = {}) {
+  if (!el) return;
+  if (!ANIM_ON) {
+    prepareRiseLines(el).forEach(showEl);
+    return;
+  }
+  const lines = prepareRiseLines(el);
+  await wait(startDelay);
+  for (let i = 0; i < lines.length; i++) {
+    showEl(lines[i]);
+    if (i < lines.length - 1) await wait(stagger);
+  }
+  await wait(280);
+}
+
+/** Arm chart text/source and return wrap. Visibility gated by CSS until .is-in. */
+function setupChartAnim(root) {
+  const wrap = root.closest(".graphic-chart") || root;
+  wrap.classList.add("anim-chart");
+  if (ANIM_ON) {
+    const sourceEl = wrap.querySelector(".source");
+    if (sourceEl) sourceEl.classList.add("anim-fade");
+    armRiseText(wrap.querySelector("figcaption h3"));
+    armRiseLines(wrap.querySelector("figcaption p"));
+  }
+  return wrap;
+}
+
+function showEl(el) {
+  if (!el) return;
+  el.classList.add("is-shown");
+}
+
+function animX(el) {
+  if (!el?.getAttribute) return 0;
+  const dx = el.getAttribute("data-anim-x");
+  if (dx != null && dx !== "") return Number(dx);
+  const cx = el.getAttribute("cx");
+  if (cx != null && cx !== "") return Number(cx);
+  const x = el.getAttribute("x");
+  if (x != null && x !== "") return Number(x);
+  const tr = el.getAttribute("transform") || "";
+  const m = tr.match(/translate\(\s*([-.\d]+)/);
+  if (m) return Number(m[1]);
+  const child = el.querySelector?.("circle[cx], text[x], [transform]");
+  return child ? animX(child) : 0;
+}
+
+async function showStaggerLTR(els, stagger = 28) {
+  const sorted = [...els].sort((a, b) => animX(a) - animX(b) || 0);
+  // Same x → show together (e.g. both series dots + scrubber)
+  const groups = [];
+  sorted.forEach((el) => {
+    const x = animX(el);
+    const last = groups[groups.length - 1];
+    if (last && Math.abs(last.x - x) < 3) last.els.push(el);
+    else groups.push({ x, els: [el] });
+  });
+  for (let i = 0; i < groups.length; i++) {
+    groups[i].els.forEach(showEl);
+    if (i < groups.length - 1) await wait(stagger);
+  }
+}
+
+async function playChartSequence({
+  wrap,
+  titleEl,
+  subEl,
+  sourceEl,
+  chrome,
+  lines = [],
+  dots = [],
+  ann = [],
+  extraFinal = [],
+  lineGap = 380,
+  lineDuration = 1400,
+  dotStagger = 28,
+}) {
+  const finish = () => {
+    wrap?.classList.add("is-anim-done");
+    chrome?.forEach(showEl);
+    lines.forEach((line) => line.classList.add("is-drawn"));
+    dots.forEach(showEl);
+    ann.forEach(showEl);
+    extraFinal.forEach(showEl);
+    if (sourceEl) {
+      sourceEl.classList.add("anim-fade", "is-shown");
+    }
+  };
+
+  if (!ANIM_ON) {
+    finish();
+    return;
+  }
+
+  await playRiseText(titleEl, { stagger: 42 });
+  if (subEl) await playRiseLines(subEl, { stagger: 140, startDelay: 80 });
+  await wait(220);
+  chrome.forEach(showEl);
+  if (sourceEl) {
+    sourceEl.classList.add("anim-fade");
+    wait(380).then(() => showEl(sourceEl));
+  }
+  await wait(420);
+  for (let i = 0; i < lines.length; i++) {
+    lines[i].classList.add("is-drawn");
+    if (i < lines.length - 1) await wait(lineGap);
+  }
+  if (lines.length) await wait(lineDuration);
+  // Visual markers only, one LTR pass by x (small + large + % labels)
+  const isHotspot = (el) => el.classList?.contains("ann-hotspot");
+  const pointEls = [...dots, ...ann].filter((el) => !isHotspot(el));
+  if (pointEls.length) await showStaggerLTR(pointEls, dotStagger);
+  ann.filter(isHotspot).forEach(showEl);
+  extraFinal.forEach(showEl);
+  await wait(200);
+  wrap?.classList.add("is-anim-done");
+}
+
+function animateOnView(node) {
+  whenInView(node, () => node.classList.add("is-in"));
 }
 
 /** Hover on mouse; tap to open, tap outside to close (Chrome touch emulation + devices). */
@@ -89,22 +378,8 @@ function scaleY(value, min, max, top, bottom) {
   return top + ((max - value) / (max - min)) * (bottom - top);
 }
 
-function animateOnView(node) {
-  const io = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((e) => {
-        if (e.isIntersecting) {
-          e.target.classList.add("is-in");
-          io.unobserve(e.target);
-        }
-      });
-    },
-    { threshold: 0.28 }
-  );
-  io.observe(node);
-}
-
 function drawChart1(root) {
+  const wrap = setupChartAnim(root);
   const isMobile = window.matchMedia("(max-width: 860px)").matches;
   const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
   const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
@@ -496,29 +771,39 @@ function drawChart1(root) {
     panel.setAttribute("transform", isJuly ? `translate(${plotR - calloutW - cx}, 0)` : "");
   };
 
-  const clearAnnPulse = (pair) => {
-    pair.all.classList.remove("is-pulsing");
-    pair.fico.classList.remove("is-pulsing");
+  let activeAnn = -1;
+
+  const clearAnnPulses = () => {
+    annDots.forEach((pair) => {
+      pair.all.classList.remove("is-pulsing");
+      pair.fico.classList.remove("is-pulsing");
+    });
   };
 
-  const showAnn = (i) => {
-    if (!seriesOn.all && !seriesOn.fico) return;
-    annHotspots.forEach((_, j) => {
-      annGuides[j].classList.remove("is-visible");
-      clearAnnPulse(annDots[j]);
-    });
-    alignPopup(i === 0 ? "April" : "July", i === 1);
-    g.classList.add("is-visible");
-    annGuides[i].classList.add("is-visible");
-    const pair = annDots[i];
+  const pulseActiveAnn = () => {
+    clearAnnPulses();
+    if (activeAnn < 0) return;
+    const pair = annDots[activeAnn];
+    if (!pair) return;
     if (seriesOn.all) pair.all.classList.add("is-pulsing");
     if (seriesOn.fico) pair.fico.classList.add("is-pulsing");
   };
 
+  const showAnn = (i) => {
+    if (!seriesOn.all && !seriesOn.fico) return;
+    activeAnn = i;
+    annGuides.forEach((guide) => guide.classList.remove("is-visible"));
+    alignPopup(i === 0 ? "April" : "July", i === 1);
+    g.classList.add("is-visible");
+    annGuides[i].classList.add("is-visible");
+    pulseActiveAnn();
+  };
+
   const hideAnn = () => {
+    activeAnn = -1;
     g.classList.remove("is-visible");
     annGuides.forEach((guide) => guide.classList.remove("is-visible"));
-    annDots.forEach(clearAnnPulse);
+    clearAnnPulses();
   };
 
   bindHoverOrTap(annHotspots, {
@@ -568,7 +853,9 @@ function drawChart1(root) {
   root.appendChild(svg);
   alignPopup("April");
   if (document.fonts?.ready) {
-    document.fonts.ready.then(() => alignPopup(monthLabel.textContent || "April", monthLabel.textContent === "July"));
+    document.fonts.ready.then(() =>
+      alignPopup(monthLabel.textContent || "April", monthLabel.textContent === "July")
+    );
   }
 
   const legendTextX = legendRight - Math.max(l1.getComputedTextLength(), l2.getComputedTextLength());
@@ -617,13 +904,12 @@ function drawChart1(root) {
     layer.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
-    annDots.forEach((pair) => {
-      if (!on) pair[key].classList.remove("is-pulsing");
-    });
     if (!on) {
       g.classList.remove("is-visible");
       annGuides.forEach((guide) => guide.classList.remove("is-visible"));
+      activeAnn = -1;
     }
+    pulseActiveAnn();
   };
   const toggleSeries = (key) => setSeriesVisible(key, !seriesOn[key]);
   const bindLegend = (el, key) => {
@@ -639,10 +925,40 @@ function drawChart1(root) {
   bindLegend(legendAll, "all");
   bindLegend(legendFico, "fico");
 
-  animateOnView(root);
+  const skipChrome = new Set([defs, ficoG, allG, g, ...annHotspots, ...annGuides]);
+  [...svg.children].forEach((child) => {
+    if (skipChrome.has(child)) return;
+    child.classList.add("anim-chrome");
+  });
+  allG.querySelectorAll(".dot").forEach((d) => d.classList.add("anim-dot"));
+  ficoG.querySelectorAll(".dot").forEach((d) => d.classList.add("anim-dot"));
+  annDots.forEach((pair) => {
+    pair.all.classList.add("anim-ann");
+    pair.fico.classList.add("anim-ann");
+  });
+  annHotspots.forEach((h) => h.classList.add("anim-ann"));
+
+  const titleEl = wrap.querySelector("figcaption h3");
+  const subEl = wrap.querySelector("figcaption p");
+  const sourceEl = wrap.querySelector(".source");
+
+  whenInView(wrap, async () => {
+    await playChartSequence({
+      wrap,
+      titleEl,
+      subEl,
+      sourceEl,
+      chrome: [...svg.querySelectorAll(".anim-chrome")],
+      lines: [ficoLine, allLine],
+      dots: [...svg.querySelectorAll(".anim-dot")],
+      ann: [...svg.querySelectorAll(".anim-ann")],
+      lineGap: 500,
+    });
+  });
 }
 
 function drawChart2(root) {
+  const wrap = setupChartAnim(root);
   const isMobile = window.matchMedia("(max-width: 860px)").matches;
   const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
   const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
@@ -792,22 +1108,33 @@ function drawChart2(root) {
     ["Q4", "2022"],
   ];
 
-  const annGuides = activeIdx.map((i) => {
-    const x = cxAt(i);
-    const guide = svgEl("line", {
-      class: "ann-guide",
-      x1: x,
-      x2: x,
+  const axisX = "#414d97";
+
+  // Guides under series (scrubber line sits here, under dots)
+  const guidesLayer = svgEl("g", { class: "chart-guides-layer" });
+  svg.appendChild(guidesLayer);
+
+  // Entrance scrubber on Q4 2020 (index 3); handle circles added later, above series
+  const scrubIdx = 3;
+  const scrubX = cxAt(scrubIdx);
+  const scrubber = svgEl("g", {
+    class: "anim-ann chart-scrubber",
+    "data-anim-x": scrubX,
+    transform: `translate(${scrubX}, 0)`,
+  });
+  scrubber.appendChild(
+    svgEl("line", {
+      x1: 0,
+      x2: 0,
       y1: plotT,
       y2: plotB,
       stroke: NAVY,
       "stroke-width": 2,
       "stroke-linecap": "round",
       "stroke-dasharray": "0.01 7",
-    });
-    svg.appendChild(guide);
-    return guide;
-  });
+    })
+  );
+  guidesLayer.appendChild(scrubber);
 
   const acceptG = svgEl("g", { class: "series series--accept" });
   const applyG = svgEl("g", { class: "series series--apply" });
@@ -839,6 +1166,31 @@ function drawChart2(root) {
   });
 
   svg.append(applyG, acceptG);
+
+  // Scrubber handle sits above series
+  const scrubHandle = svgEl("g", {
+    class: "anim-ann chart-scrubber-handle",
+    "data-anim-x": scrubX,
+    transform: `translate(${scrubX}, 0)`,
+  });
+  scrubHandle.appendChild(
+    svgEl("circle", {
+      cx: 0,
+      cy: plotT,
+      r: 10,
+      fill: "#fff",
+      filter: "url(#dot-shadow-2)",
+    })
+  );
+  scrubHandle.appendChild(
+    svgEl("circle", {
+      cx: 0,
+      cy: plotT,
+      r: 7,
+      fill: axisX,
+    })
+  );
+  svg.appendChild(scrubHandle);
 
   const calloutPad = isMobile ? 16 : 22;
   let calloutW = isMobile ? 180 : 200;
@@ -905,22 +1257,23 @@ function drawChart2(root) {
   panel.appendChild(body2);
   g.appendChild(panel);
 
-  const topMarkerHalo = svgEl("circle", {
-    class: "ann-guide",
-    cx: 0,
-    cy: plotT,
-    r: 10,
-    fill: "#fff",
-    filter: "url(#dot-shadow-2)",
-  });
-  const topMarkerCore = svgEl("circle", {
-    class: "ann-guide",
-    cx: 0,
-    cy: plotT,
-    r: 7,
-    fill: "#000",
-  });
-  svg.append(topMarkerHalo, topMarkerCore);
+  let scrubPosX = scrubX;
+
+  const setScrubEase = (on) => {
+    scrubber.classList.toggle("scrub-ease", on);
+    scrubHandle.classList.toggle("scrub-ease", on);
+    panel.classList.toggle("scrub-ease", on);
+  };
+
+  const moveScrubberTo = (x, { animate = false } = {}) => {
+    scrubPosX = x;
+    setScrubEase(animate);
+    const t = `translate(${x}, 0)`;
+    scrubber.setAttribute("transform", t);
+    scrubHandle.setAttribute("transform", t);
+    scrubber.setAttribute("data-anim-x", x);
+    scrubHandle.setAttribute("data-anim-x", x);
+  };
 
   const layoutCallout = () => {
     const contentW = Math.max(
@@ -934,41 +1287,62 @@ function drawChart2(root) {
     calloutRect.setAttribute("height", calloutH);
   };
 
-  const showCalloutAt = (i) => {
-    const x = cxAt(i);
+  const calloutPxFor = (x) => {
+    const gap = 31;
+    const left = x + gap;
+    const right = x - calloutW - gap;
+    return left + calloutW <= plotR ? left : Math.max(plotL, right);
+  };
+
+  const calloutPy = isMobile ? 50 : 0;
+
+  const placeCalloutPanel = (x) => {
+    panel.setAttribute("transform", `translate(${calloutPxFor(x)}, ${calloutPy})`);
+  };
+
+  const clearAnnPulses = () => {
+    chart2AnnDots.forEach(({ pulseDots }) => {
+      pulseDots.forEach(({ el }) => el.classList.remove("is-pulsing"));
+    });
+  };
+
+  const pulseQuarter = (i) => {
+    clearAnnPulses();
+    const item = chart2AnnDots.find((d) => d.i === i);
+    if (!item) return;
+    item.pulseDots.forEach(({ key, el }) => {
+      if (seriesOn[key]) el.classList.add("is-pulsing");
+    });
+  };
+
+  const showCalloutAt = (i, x = cxAt(i), { animate = false } = {}) => {
     const [q, year] = quarterLabels[i];
     calloutTitle.textContent = `${q} ${year}`;
     body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
     layoutCallout();
-    const gap = 31;
-    const left = x + gap;
-    const right = x - calloutW - gap;
-    const px = left + calloutW <= plotR ? left : Math.max(plotL, right);
-    panel.setAttribute("transform", `translate(${px}, 0)`);
-    topMarkerHalo.setAttribute("cx", x);
-    topMarkerCore.setAttribute("cx", x);
-    topMarkerHalo.classList.add("is-visible");
-    topMarkerCore.classList.add("is-visible");
+    setScrubEase(animate);
+    placeCalloutPanel(x);
+    moveScrubberTo(x, { animate });
     svg.appendChild(g);
     g.classList.add("is-visible");
+    pulseQuarter(i);
   };
 
   const hideCallout = () => {
-    topMarkerHalo.classList.remove("is-visible");
-    topMarkerCore.classList.remove("is-visible");
     g.classList.remove("is-visible");
+    clearAnnPulses();
   };
 
   const seriesOn = { accept: true, apply: true };
-  const chart2Hotspots = [];
+  const chart2AnnDots = [];
 
-  activeIdx.forEach((i, gi) => {
-    const hotspot = svgEl("g", { class: "ann-hotspot" });
+  activeIdx.forEach((i) => {
     const pulseDots = [];
     if (labeledA[i]) {
       const [x, y] = acceptPts[i];
       pulseDots.push({ key: "accept", el: makeAnnDot(acceptG, x, y, PURPLE, "dot-shadow-2") });
       const t = svgEl("text", {
+        class: "anim-ann chart-pct-label",
         x,
         y: y - (isMobile ? 14 : 18),
         fill: PURPLE,
@@ -988,6 +1362,7 @@ function drawChart2(root) {
       const [x, y] = applyPts[i];
       pulseDots.push({ key: "apply", el: makeAnnDot(applyG, x, y, PINK, "dot-shadow-2") });
       const t = svgEl("text", {
+        class: "anim-ann chart-pct-label",
         x: i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
         y: i === 2 ? y + 7 : y + (isMobile ? 26 : 32),
         fill: PINK,
@@ -1003,61 +1378,140 @@ function drawChart2(root) {
       t.textContent = labeledB[i];
       applyG.appendChild(t);
     }
-    const cx = cxAt(i);
-    hotspot.appendChild(
-      svgEl("rect", {
-        x: cx - groupW / 2,
-        y: plotT,
-        width: groupW,
-        height: plotB - plotT,
-        fill: "transparent",
-      })
-    );
-    svg.appendChild(hotspot);
-    chart2Hotspots.push({ el: hotspot, i, gi, pulseDots });
+    chart2AnnDots.push({ i, pulseDots });
   });
 
-  const hideChart2Ann = () => {
-    chart2Hotspots.forEach(({ gi, pulseDots }) => {
-      annGuides[gi].classList.remove("is-visible");
-      pulseDots.forEach(({ el }) => el.classList.remove("is-pulsing"));
-    });
-    hideCallout();
+  const snapQuarter = (x) => {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < n; i++) {
+      const d = Math.abs(cxAt(i) - x);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
   };
 
-  const showChart2Ann = (item) => {
-    const { i, gi, pulseDots } = item;
-    const hasAccept = seriesOn.accept && labeledA[i];
-    const hasApply = seriesOn.apply && labeledB[i];
-    if (!hasAccept && !hasApply) return;
-    hideChart2Ann();
-    annGuides[gi].classList.add("is-visible");
-    pulseDots.forEach(({ key, el }) => {
-      if (seriesOn[key]) el.classList.add("is-pulsing");
-    });
-    if (hasAccept) {
-      showCalloutAt(i);
+  const clientToSvgX = (clientX) => {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return cxAt(scrubIdx);
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = 0;
+    return pt.matrixTransform(ctm.inverse()).x;
+  };
+
+  let currentScrub = scrubIdx;
+
+  const clampScrubX = (x) => Math.min(cxAt(n - 1), Math.max(cxAt(0), x));
+
+  const quarterHasActive = (i) =>
+    (seriesOn.accept && labeledA[i]) || (seriesOn.apply && labeledB[i]);
+
+  const applyScrubberAt = (i, { animate = false } = {}) => {
+    currentScrub = i;
+    const x = cxAt(i);
+    if (quarterHasActive(i)) showCalloutAt(i, x, { animate });
+    else {
+      moveScrubberTo(x, { animate });
+      hideCallout();
+    }
+  };
+
+  const scrubDragTo = (x) => {
+    const clamped = clampScrubX(x);
+    moveScrubberTo(clamped, { animate: false });
+    const i = snapQuarter(clamped);
+    if (quarterHasActive(i)) {
+      const [q, year] = quarterLabels[i];
+      calloutTitle.textContent = `${q} ${year}`;
+      body2b.textContent = `to ${labeledA[i] || `${accept[i]}%`}`;
+      layoutCallout();
+      placeCalloutPanel(clamped);
+      svg.appendChild(g);
+      g.classList.add("is-visible");
+      pulseQuarter(i);
     } else {
-      const x = cxAt(i);
-      topMarkerHalo.setAttribute("cx", x);
-      topMarkerCore.setAttribute("cx", x);
-      topMarkerHalo.classList.add("is-visible");
-      topMarkerCore.classList.add("is-visible");
+      hideCallout();
     }
   };
 
-  bindHoverOrTap(
-    chart2Hotspots.map((h) => h.el),
-    {
-      show: (el) => {
-        const item = chart2Hotspots.find((h) => h.el === el);
-        if (item) showChart2Ann(item);
-      },
-      hide: hideChart2Ann,
-    }
-  );
+  // Fixed hit rail (doesn't move with scrubber) — reliable touch target on mobile
+  const scrubRail = svgEl("rect", {
+    class: "scrub-rail",
+    x: innerL - 8,
+    y: plotT - (isMobile ? 36 : 28),
+    width: innerR - innerL + 16,
+    height: isMobile ? 72 : 56,
+    fill: "transparent",
+  });
 
-  const axisX = "#414d97";
+  let dragging = false;
+  let activePointerId = null;
+
+  const jumpToQuarter = (i) => {
+    applyScrubberAt(i, { animate: false });
+    scrubRail.setAttribute("aria-valuenow", String(i));
+  };
+
+  const stopWindowDrag = () => {
+    window.removeEventListener("pointermove", onWindowPointerMove);
+    window.removeEventListener("pointerup", onWindowPointerUp);
+    window.removeEventListener("pointercancel", onWindowPointerUp);
+    document.documentElement.classList.remove("is-chart-scrubbing");
+    root.classList.remove("is-scrubbing");
+  };
+
+  const onWindowPointerMove = (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    scrubDragTo(clientToSvgX(e.clientX));
+  };
+
+  const onWindowPointerUp = (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    dragging = false;
+    activePointerId = null;
+    scrubHandle.classList.remove("is-dragging");
+    scrubber.classList.remove("is-dragging");
+    scrubRail.classList.remove("is-dragging");
+    stopWindowDrag();
+    const i = snapQuarter(clientToSvgX(e.clientX));
+    setScrubEase(false);
+    requestAnimationFrame(() => {
+      applyScrubberAt(i, { animate: true });
+      scrubRail.setAttribute("aria-valuenow", String(i));
+    });
+  };
+
+  const startScrubDrag = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragging = true;
+    activePointerId = e.pointerId;
+    setScrubEase(false);
+    scrubHandle.classList.add("is-dragging");
+    scrubber.classList.add("is-dragging");
+    scrubRail.classList.add("is-dragging");
+    document.documentElement.classList.add("is-chart-scrubbing");
+    root.classList.add("is-scrubbing");
+    window.addEventListener("pointermove", onWindowPointerMove, { passive: false });
+    window.addEventListener("pointerup", onWindowPointerUp);
+    window.addEventListener("pointercancel", onWindowPointerUp);
+    scrubDragTo(clientToSvgX(e.clientX));
+  };
+
+  scrubRail.addEventListener("pointerdown", startScrubDrag);
+  // Block browser scroll/gesture takeover on the rail (iOS/Android)
+  scrubRail.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  scrubRail.setAttribute("role", "slider");
+  scrubRail.setAttribute("aria-label", "Drag to explore quarters");
+  scrubRail.setAttribute("aria-valuemin", "0");
+  scrubRail.setAttribute("aria-valuemax", String(n - 1));
+  scrubRail.setAttribute("aria-valuenow", String(scrubIdx));
 
   svg.appendChild(
     svgEl("line", {
@@ -1274,6 +1728,40 @@ function drawChart2(root) {
     );
   }
 
+  svg.appendChild(scrubRail);
+
+  // Hit targets above scrub rail so annotated dots stay tappable
+  const annScrubHits = [];
+  chart2AnnDots.forEach(({ i, pulseDots }) => {
+    pulseDots.forEach(({ key, el }) => {
+      el.classList.add("ann-dot--scrub");
+      const tr = el.getAttribute("transform") || "";
+      const m = tr.match(/translate\(\s*([-.\d]+)[ ,]+([-.\d]+)/);
+      if (!m) return;
+      const hit = svgEl("circle", {
+        class: "ann-dot-scrub-hit",
+        cx: m[1],
+        cy: m[2],
+        r: isMobile ? 22 : 16,
+        fill: "transparent",
+        "data-series": key,
+      });
+      hit.addEventListener("pointerdown", (e) => e.stopPropagation());
+      hit.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (dragging || !seriesOn[key]) return;
+        jumpToQuarter(i);
+      });
+      svg.appendChild(hit);
+      annScrubHits.push(hit);
+    });
+  });
+
+  svg.append(legendAccept, legendApply);
+  svg.appendChild(g);
+  root.appendChild(svg);
+
   const setSeriesVisible = (key, on) => {
     seriesOn[key] = on;
     const layer = key === "accept" ? acceptG : applyG;
@@ -1283,8 +1771,14 @@ function drawChart2(root) {
     axis.classList.toggle("is-off", !on);
     legend.classList.toggle("is-off", !on);
     legend.setAttribute("aria-pressed", on ? "true" : "false");
-    layer.querySelectorAll(".ann-dot.is-pulsing").forEach((el) => el.classList.remove("is-pulsing"));
-    if (!on) hideCallout();
+    annScrubHits.forEach((hit) => {
+      if (hit.getAttribute("data-series") === key) {
+        hit.style.pointerEvents = on ? "all" : "none";
+      }
+    });
+    if (wrap.classList.contains("is-anim-done") || !ANIM_ON) {
+      applyScrubberAt(currentScrub);
+    }
   };
 
   const toggleSeries = (key) => setSeriesVisible(key, !seriesOn[key]);
@@ -1302,10 +1796,47 @@ function drawChart2(root) {
   bindLegend(legendAccept, "accept");
   bindLegend(legendApply, "apply");
 
-  svg.append(legendAccept, legendApply);
-  svg.appendChild(g);
-  root.appendChild(svg);
-  animateOnView(root);
+  const skipChrome = new Set([
+    defs,
+    acceptG,
+    applyG,
+    g,
+    guidesLayer,
+    scrubber,
+    scrubHandle,
+    scrubRail,
+    ...annScrubHits,
+  ]);
+  [...svg.children].forEach((child) => {
+    if (skipChrome.has(child)) return;
+    child.classList.add("anim-chrome");
+  });
+  leftAxisG.classList.add("anim-chrome");
+  rightAxisG.classList.add("anim-chrome");
+  acceptG.querySelectorAll(".dot").forEach((d) => d.classList.add("anim-dot"));
+  applyG.querySelectorAll(".dot").forEach((d) => d.classList.add("anim-dot"));
+  chart2AnnDots.forEach(({ pulseDots }) => {
+    pulseDots.forEach(({ el: dot }) => dot.classList.add("anim-ann"));
+  });
+
+  const titleEl = wrap.querySelector("figcaption h3");
+  const subEl = wrap.querySelector("figcaption p");
+  const sourceEl = wrap.querySelector(".source");
+
+  whenInView(wrap, async () => {
+    await playChartSequence({
+      wrap,
+      titleEl,
+      subEl,
+      sourceEl,
+      chrome: [...svg.querySelectorAll(".anim-chrome")],
+      lines: [acceptLine, applyLine],
+      dots: [...svg.querySelectorAll(".anim-dot")],
+      ann: [...svg.querySelectorAll(".anim-ann")],
+      extraFinal: [],
+    });
+    applyScrubberAt(scrubIdx);
+  });
 }
 
 function mountChart(root, draw) {
@@ -1317,6 +1848,8 @@ function mountChart(root, draw) {
   const mqMobile = "(max-width: 860px)";
   const mqTablet = "(min-width: 500px) and (max-width: 860px)";
   const render = () => {
+    const wrap = root.closest(".graphic-chart");
+    wrap?.classList.remove("is-in", "is-anim-done");
     root.innerHTML = "";
     draw(root);
     lastW = root.clientWidth;
@@ -1365,7 +1898,7 @@ function initGraphic3(root) {
   };
 
   const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top
-  const MOBILE_LINE_GAP = 14; // px between popup bottom and point — shorter footnote
+  const MOBILE_LINE_GAP = 48; // px between popup bottom and point (longer footnote on mobile)
 
   const shiftPct = () => {
     const scene = root.querySelector(".graphic-3-scene");
@@ -1497,4 +2030,114 @@ function initGraphic3(root) {
     show: (el) => show(el),
     hide,
   });
+
+  root.classList.add("anim-chart");
+  const g3Title = root.querySelector("h3");
+  const maya = root.querySelector(".maya");
+  hotspots.forEach((h) => h.classList.add("anim-ann"));
+  armRiseText(g3Title);
+  if (ANIM_ON && maya) maya.classList.add("anim-rise-block");
+
+  whenInView(root, async () => {
+    if (!ANIM_ON) {
+      root.classList.add("is-anim-done");
+      hotspots.forEach(showEl);
+      return;
+    }
+    await playRiseText(g3Title, { stagger: 42 });
+    if (maya) {
+      await wait(120);
+      maya.classList.add("is-shown");
+      await wait(500);
+    }
+    for (let i = 0; i < hotspots.length; i++) {
+      showEl(hotspots[i]);
+      if (i < hotspots.length - 1) await wait(70);
+    }
+    await wait(200);
+    root.classList.add("is-anim-done");
+  });
 }
+
+function initQuotes() {
+  document.querySelectorAll(".quote").forEach((quote) => {
+    quote.classList.add("anim-quote");
+    const p = quote.querySelector(":scope > p");
+    const footer = quote.querySelector("footer");
+    const photo = footer?.querySelector(".quote-img");
+    const meta = footer?.querySelector(".quote-meta");
+    const authorLines = meta ? [...meta.children] : [];
+
+    armRiseText(p);
+    if (ANIM_ON) {
+      if (photo) photo.classList.add("anim-author-photo");
+      authorLines.forEach((el) => el.classList.add("anim-author-line"));
+    }
+
+    whenInView(quote, async () => {
+      if (!ANIM_ON) {
+        quote.classList.add("is-anim-done", "is-in");
+        return;
+      }
+      quote.classList.add("is-mark-in");
+      await wait(280);
+      await playRiseText(p, { stagger: 36 });
+      if (footer) {
+        await wait(100);
+        if (photo) {
+          photo.classList.add("is-shown");
+          await wait(480);
+        }
+        for (let i = 0; i < authorLines.length; i++) {
+          authorLines[i].classList.add("is-shown");
+          if (i < authorLines.length - 1) await wait(140);
+        }
+        await wait(220);
+      }
+      quote.classList.add("is-anim-done");
+    });
+  });
+}
+
+initQuotes();
+
+function initReadMore() {
+  const btn = document.querySelector(".read-more");
+  if (!btn) return;
+  if (ANIM_ON) btn.classList.add("anim-rise-block");
+  whenInView(btn, () => {
+    if (!ANIM_ON) {
+      btn.classList.add("is-shown", "is-anim-done");
+      return;
+    }
+    btn.classList.add("is-shown");
+  });
+}
+
+initReadMore();
+
+function initGraphic0() {
+  const el = document.querySelector(".graphic-0");
+  const img = el?.querySelector("img");
+  if (!el || !img) return;
+  if (ANIM_ON) {
+    el.classList.add("anim-hero-frame");
+    img.classList.add("anim-hero-zoom");
+  }
+  whenInView(
+    el,
+    async () => {
+      if (!ANIM_ON) {
+        el.classList.add("is-shown", "is-anim-done");
+        img.classList.add("is-shown");
+        return;
+      }
+      await wait(120);
+      el.classList.add("is-shown");
+      img.classList.add("is-shown");
+    },
+    0.12
+  );
+}
+
+initGraphic0();

@@ -106,7 +106,7 @@ h3,
 }
 
 .dek,
-.quote span,
+.quote footer span,
 .maya span,
 .shock em,
 .shock span,
@@ -120,7 +120,7 @@ h3,
 }
 
 .dek,
-.quote span,
+.quote footer span,
 .maya span,
 .shock em,
 .shock span,
@@ -165,6 +165,7 @@ p,
 .hero-block {
   position: relative;
   height: var(--hero-block);
+  perspective: 1400px;
 }
 
 .hero-image {
@@ -193,6 +194,36 @@ p,
   height: 100%;
   object-fit: cover;
   object-position: center 60%;
+}
+
+.graphic-0.anim-hero-frame {
+  opacity: 0;
+  transform: translate3d(0, 96px, 0) rotateX(16deg) rotateZ(-2.4deg) skewX(-6deg) scale(0.88);
+  transform-origin: 50% 100%;
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1.15s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.graphic-0.anim-hero-frame.is-shown,
+html.no-animate .graphic-0.anim-hero-frame,
+.is-anim-done .graphic-0.anim-hero-frame {
+  opacity: 1;
+  transform: none;
+}
+
+.graphic-0 img.anim-hero-zoom {
+  transform: scale(1.32);
+  transform-origin: center 55%;
+  transition: transform 1.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.graphic-0 img.anim-hero-zoom.is-shown,
+html.no-animate .graphic-0 img.anim-hero-zoom,
+.is-anim-done .graphic-0 img.anim-hero-zoom {
+  transform: scale(1);
 }
 
 .main {
@@ -386,7 +417,7 @@ h1 {
   color: var(--ink);
 }
 
-.quote span {
+.quote footer span {
   display: block;
   margin-top: 0;
   font-family: "PP Monument Extended", sans-serif;
@@ -654,9 +685,18 @@ h1 {
   transition: background 0.2s, color 0.2s;
 }
 
+.read-more span {
+  display: inline-block;
+  transition: transform 0.25s ease-out;
+}
+
 .read-more:hover {
   background: var(--purple);
   color: #fff;
+}
+
+.read-more:hover span {
+  transform: translateX(5px);
 }
 
 .join {
@@ -765,20 +805,27 @@ h1 {
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  transition: stroke-dashoffset 1.6s ease;
+  transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.is-in .line-draw {
+.line-draw.is-drawn,
+html.no-animate .line-draw,
+.is-anim-done .line-draw {
   stroke-dashoffset: 0;
 }
 
-.dot {
+.dot,
+.anim-dot {
   opacity: 0;
   transform-origin: center;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.45s ease;
 }
 
-.is-in .dot {
+.anim-dot.is-shown,
+html.no-animate .dot,
+html.no-animate .anim-dot,
+.is-anim-done .dot,
+.is-anim-done .anim-dot {
   opacity: 1;
 }
 
@@ -831,6 +878,17 @@ h1 {
   pointer-events: none;
 }
 
+#chart-2 .ann-dot--scrub {
+  pointer-events: none;
+}
+
+#chart-2 .ann-dot-scrub-hit {
+  cursor: pointer;
+  pointer-events: all;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .ann-dot.is-pulsing .ann-dot__pulse {
   animation: ann-pulse-ring 1.5s ease-out infinite;
 }
@@ -868,6 +926,270 @@ h1 {
   .ann-dot.is-pulsing .ann-dot__pulse,
   .ann-dot.is-pulsing .ann-dot__core {
     animation: none;
+  }
+}
+
+/* ——— Entrance animations (FT / Pictet style) ——— */
+.anim-rise {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 0.7em, 0);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.anim-rise.is-shown,
+html.no-animate .anim-rise,
+.is-anim-done .anim-rise {
+  opacity: 1;
+  transform: none;
+}
+
+.anim-rise-block {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.anim-rise-block.is-shown,
+html.no-animate .anim-rise-block,
+.is-anim-done .anim-rise-block {
+  opacity: 1;
+  transform: none;
+}
+
+.anim-fade {
+  opacity: 0;
+  transition: opacity 0.65s ease;
+}
+
+.anim-fade.is-shown,
+html.no-animate .anim-fade,
+.is-anim-done .anim-fade {
+  opacity: 1;
+}
+
+.maya.anim-rise-block {
+  transform: translateY(var(--g3-shift)) translate3d(0, 18px, 0);
+}
+
+.maya.anim-rise-block.is-shown,
+html.no-animate .maya.anim-rise-block,
+.is-anim-done .maya.anim-rise-block {
+  transform: translateY(var(--g3-shift));
+}
+
+.anim-chrome {
+  opacity: 0;
+  transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.anim-chrome.is-shown,
+html.no-animate .anim-chrome,
+.is-anim-done .anim-chrome {
+  opacity: 1;
+}
+
+.anim-ann {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.anim-ann.is-shown,
+html.no-animate .anim-ann,
+.is-anim-done .anim-ann {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html:not(.no-animate) .hotspot.anim-ann:not(.is-shown) {
+  animation: none !important;
+}
+
+.chart-scrubber {
+  pointer-events: none;
+}
+
+.chart-scrubber-handle {
+  pointer-events: none;
+}
+
+.scrub-rail {
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scrub-rail.is-dragging {
+  cursor: grabbing;
+}
+
+html.is-chart-scrubbing,
+html.is-chart-scrubbing body {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+#chart-2.is-scrubbing,
+#chart-2.is-scrubbing svg {
+  touch-action: none;
+}
+
+.chart-scrubber.scrub-ease,
+.chart-scrubber-handle.scrub-ease,
+.callout-box--hover .callout-panel.scrub-ease {
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.anim-quote > p::before {
+  transition:
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.75s ease;
+}
+
+.anim-author-photo {
+  transform: scale(0);
+  transform-origin: 0 0;
+  opacity: 0;
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.35s ease;
+}
+
+.anim-author-photo.is-shown,
+html.no-animate .anim-author-photo,
+.is-anim-done .anim-author-photo {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.anim-author-line {
+  opacity: 0;
+  transform: translate3d(28px, 0, 0);
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.anim-author-line.is-shown,
+html.no-animate .anim-author-line,
+.is-anim-done .anim-author-line {
+  opacity: 1;
+  transform: none;
+}
+
+html:not(.no-animate) .anim-quote:not(.is-mark-in) > p::before {
+  transform: translateY(16px);
+  opacity: 0.25;
+}
+
+html:not(.no-animate) .anim-quote.is-mark-in > p::before {
+  transform: translateY(-6px);
+  opacity: 1;
+}
+
+html.no-animate .anim-quote > p::before {
+  transform: none;
+  opacity: 1;
+}
+
+.graphic-chart figcaption h3,
+.graphic-chart figcaption p,
+.graphic-3 > h3,
+.quote > p {
+  overflow: visible;
+}
+
+/* Gate all chart entrance content until .is-in — no flash on refresh */
+html:not(.no-animate) .anim-chart:not(.is-in) .chart-canvas,
+html:not(.no-animate) .anim-chart:not(.is-in) .source,
+html:not(.no-animate) .anim-chart:not(.is-in) figcaption h3,
+html:not(.no-animate) .anim-chart:not(.is-in) figcaption p {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
+html:not(.no-animate) .anim-chart:not(.is-in) .anim-chrome,
+html:not(.no-animate) .anim-chart:not(.is-in) .anim-dot,
+html:not(.no-animate) .anim-chart:not(.is-in) .anim-ann,
+html:not(.no-animate) .anim-chart:not(.is-in) .line-draw {
+  transition: none !important;
+}
+
+/* Hide copy until JS splits it into .anim-rise spans (avoids flash) */
+html:not(.no-animate) .anim-chart figcaption h3:not(:has(.anim-rise)),
+html:not(.no-animate) .anim-chart figcaption p:not(:has(.anim-rise-line)),
+html:not(.no-animate) .anim-chart .source.anim-fade:not(.is-shown),
+html:not(.no-animate) .graphic-3 > h3:not(:has(.anim-rise)),
+html:not(.no-animate) .anim-quote > p:not(:has(.anim-rise)) {
+  opacity: 0;
+}
+
+/* Author photo/meta: hidden from first paint until .is-shown (no fade-out flash) */
+html:not(.no-animate) .quote:not(.is-anim-done) .quote-img:not(.is-shown) {
+  opacity: 0;
+  transform: scale(0);
+  transform-origin: 0 0;
+  transition: none;
+}
+
+html:not(.no-animate) .quote:not(.is-anim-done) .quote-meta > :not(.is-shown) {
+  opacity: 0;
+  transform: translate3d(28px, 0, 0);
+  transition: none;
+}
+
+/* Read more: hidden until armed / shown (avoids refresh flash) */
+html:not(.no-animate) .read-more:not(.anim-rise-block),
+html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition: none;
+}
+
+/* Graphic 0: frame rise + image zoom-out, no refresh flash */
+html:not(.no-animate) .graphic-0:not(.is-shown) {
+  opacity: 0;
+  transform: translate3d(0, 96px, 0) rotateX(16deg) rotateZ(-2.4deg) skewX(-6deg) scale(0.88);
+  transform-origin: 50% 100%;
+  transition: none;
+}
+
+html:not(.no-animate) .graphic-0:not(.is-shown) img,
+html:not(.no-animate) .graphic-0 img.anim-hero-zoom:not(.is-shown) {
+  transform: scale(1.32);
+  transform-origin: center 55%;
+  transition: none;
+}
+
+.anim-rise-line {
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-rise-block,
+  .anim-fade,
+  .anim-chrome,
+  .anim-ann,
+  .anim-dot,
+  .line-draw,
+  .anim-quote > p::before,
+  .anim-author-photo,
+  .anim-author-line,
+  .graphic-0.anim-hero-frame,
+  .graphic-0 img.anim-hero-zoom {
+    transition: none !important;
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -1091,7 +1413,7 @@ h1 {
     line-height: 23px;
   }
 
-  .quote span {
+  .quote footer span {
     font-size: 13.5px;
     line-height: 13.5px;
   }
