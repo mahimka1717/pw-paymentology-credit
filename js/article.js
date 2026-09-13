@@ -30,18 +30,24 @@ function polyline(points) {
   return points.map(([x, y]) => `${x},${y}`).join(" ");
 }
 
-function makeAnnDot(parent, x, y, color, filterId) {
+/** Same HTML pulse dots as graphic 3 (box-shadow) — works in mobile Safari unlike SVG transform pulses. */
+function makeAnnDot(parent, x, y, color, _filterId) {
   const g = svgEl("g", { class: "ann-dot", transform: `translate(${x} ${y})` });
-  g.appendChild(svgEl("circle", { class: "ann-dot__pulse", r: "6", fill: color }));
-  g.appendChild(
-    svgEl("circle", {
-      class: "ann-dot__halo",
-      r: "8",
-      fill: "#fff",
-      filter: `url(#${filterId})`,
-    })
-  );
-  g.appendChild(svgEl("circle", { class: "ann-dot__core", r: "6", fill: color }));
+  const fo = svgEl("foreignObject", {
+    class: "ann-dot__fo",
+    x: -20,
+    y: -20,
+    width: 40,
+    height: 40,
+  });
+  const host = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  host.className = "ann-dot__fo-host";
+  const dot = document.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  dot.className = "ann-dot__html";
+  dot.style.setProperty("--ann-color", color);
+  host.appendChild(dot);
+  fo.appendChild(host);
+  g.appendChild(fo);
   parent.appendChild(g);
   return g;
 }

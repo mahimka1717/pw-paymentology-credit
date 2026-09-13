@@ -870,15 +870,47 @@ html.no-animate .anim-dot,
   -webkit-tap-highlight-color: transparent;
 }
 
-.ann-dot__pulse,
-.ann-dot__core {
-  transform-box: fill-box;
-  transform-origin: center;
+.ann-dot__fo {
+  overflow: visible;
+  pointer-events: none;
 }
 
-.ann-dot__pulse {
-  opacity: 0;
+.ann-dot__fo-host {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+}
+
+/* Match graphic-3 .hotspot look + pulse (Safari-friendly box-shadow) */
+.ann-dot__html {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  flex: none;
+}
+
+.ann-dot__html::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--ann-color, var(--purple));
+  pointer-events: none;
+}
+
+.ann-dot.is-pulsing .ann-dot__html {
+  /* Same keyframes as graphic-3 .hotspot.is-pulsing */
+  animation: pulse 2.4s ease-out infinite;
 }
 
 #chart-2 .ann-dot--scrub {
@@ -892,42 +924,9 @@ html.no-animate .anim-dot,
   -webkit-tap-highlight-color: transparent;
 }
 
-.ann-dot.is-pulsing .ann-dot__pulse {
-  animation: ann-pulse-ring 1.5s ease-out infinite;
-}
-
-.ann-dot.is-pulsing .ann-dot__core {
-  animation: ann-pulse-core 1.5s ease-in-out infinite;
-}
-
-@keyframes ann-pulse-ring {
-  0% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  70% {
-    opacity: 0;
-    transform: scale(2.75);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(2.75);
-  }
-}
-
-@keyframes ann-pulse-core {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.18);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .ann-dot.is-pulsing .ann-dot__pulse,
-  .ann-dot.is-pulsing .ann-dot__core {
+  .ann-dot.is-pulsing .ann-dot__html,
+  .hotspot.is-pulsing {
     animation: none;
   }
 }
