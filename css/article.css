@@ -373,6 +373,11 @@ h1 {
   transform: scaleX(-1);
 }
 
+.quote-author--macmillan .quote-img img {
+  object-position: 50% 62%;
+  transform: none;
+}
+
 .quote cite {
   display: block;
   font-style: normal;
@@ -652,18 +657,6 @@ h1 {
   }
 }
 
-@keyframes pulse {
-  0% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 0 rgba(129, 56, 255, 0.45);
-  }
-  70% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 18px rgba(129, 56, 255, 0);
-  }
-  100% {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 0 rgba(129, 56, 255, 0);
-  }
-}
-
 .cta-wrap {
   text-align: center;
   margin: 88px auto 148px !important;
@@ -920,7 +913,7 @@ html.no-animate .anim-dot,
 .chart2-callout__title {
   margin: 0 0 10px;
   color: #fff;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.1;
 }
@@ -928,8 +921,8 @@ html.no-animate .anim-dot,
 .chart2-callout__body1 {
   margin: 0 0 8px;
   color: var(--purple);
-  font-size: 12px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 17px;
   font-weight: 600;
   letter-spacing: -0.05em;
   overflow-wrap: break-word;
@@ -943,8 +936,8 @@ html.no-animate .anim-dot,
 .chart2-callout__body2 {
   margin: 0;
   color: var(--purple-soft);
-  font-size: 12px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 17px;
   font-weight: 600;
   letter-spacing: -0.05em;
   overflow-wrap: break-word;
@@ -1001,7 +994,7 @@ html.no-animate .anim-dot,
 }
 
 .ann-dot.is-pulsing {
-  animation: pulse 2.4s ease-out infinite;
+  animation: hotspot-pulse 1.8s ease-out infinite;
 }
 
 .ann-dot.is-off {
@@ -1061,8 +1054,7 @@ html.no-animate .anim-fade,
   opacity: 1;
 }
 
-/* Body copy: one-shot opacity fade (h1 / h2 / p) — half in view */
-html:not(.no-animate) .article-head h1:not(.is-shown),
+/* Body copy: one-shot opacity fade (dek / h2 / p) — half in view */
 html:not(.no-animate) .article-head .dek:not(.is-shown),
 html:not(.no-animate) .main > h2:not(.is-shown),
 html:not(.no-animate) .main > p:not(.cta-wrap):not(.is-shown) {
@@ -1070,7 +1062,6 @@ html:not(.no-animate) .main > p:not(.cta-wrap):not(.is-shown) {
   transition: none;
 }
 
-html:not(.no-animate) .article-head h1.is-shown,
 html:not(.no-animate) .article-head .dek.is-shown,
 html:not(.no-animate) .main > h2.is-shown,
 html:not(.no-animate) .main > p:not(.cta-wrap).is-shown {
@@ -1289,6 +1280,7 @@ html:not(.no-animate) .anim-chart:not(.is-in) .line-draw {
 }
 
 /* Hide copy until JS splits it into .anim-rise spans (avoids flash) */
+html:not(.no-animate) .article-head h1:not(:has(.anim-rise)),
 html:not(.no-animate) .anim-chart figcaption h3:not(:has(.anim-rise)),
 html:not(.no-animate) .anim-chart figcaption p:not(:has(.anim-rise-line)),
 html:not(.no-animate) .anim-chart .source.anim-fade:not(.is-shown),

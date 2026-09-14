@@ -57,7 +57,7 @@ function setAnnDotPulsing(el, on) {
 }
 
 /** Idle: pulse step groups in a loop. Selection: lock() specific els. */
-function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs = 2400 } = {}) {
+function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs = 1800 } = {}) {
   let timer = 0;
   let step = 0;
   let mode = "stop"; // stop | tour | lock
@@ -887,11 +887,11 @@ function drawChart1(root) {
       x: cx + calloutW / 2,
       y: cy + (isMobile ? 22 : 24),
       fill: "#fff",
-      "font-size": isMobile ? 15 : fs,
+      "font-size": isMobile ? 15 : fs + 2,
       "font-weight": 600,
       "font-family": "Inter, sans-serif",
       "text-anchor": "middle",
-      style: `line-height: ${isMobile ? 15 : fs}px`,
+      style: `line-height: ${isMobile ? 15 : fs + 2}px`,
     },
     "April"
   );
@@ -905,14 +905,14 @@ function drawChart1(root) {
       "font-family": '"PP Monument Extended", sans-serif',
       style: `line-height: ${fsLg}px`,
     },
-    "60%"
+    "~60%"
   );
   const rightAttrs = {
-    "font-size": fsSm,
+    "font-size": isMobile ? fsSm : fsSm + 2,
     "font-family": "Inter, sans-serif",
     "font-weight": 600,
     "letter-spacing": "-0.05em",
-    style: `line-height: ${fsSm}px`,
+    style: `line-height: ${isMobile ? fsSm : fsSm + 2}px`,
   };
   const rightTexts = [
     add({ ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 44 : 48), fill: PURPLE }, "fewer new cards"),
@@ -928,7 +928,7 @@ function drawChart1(root) {
       "font-family": '"PP Monument Extended", sans-serif',
       style: `line-height: ${fsLg}px`,
     },
-    "90%"
+    "~90%"
   );
   const lineBot1 = add(
     { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 84 : 90), fill: PURPLE_SOFT },
@@ -958,13 +958,13 @@ function drawChart1(root) {
     rightTexts[1].setAttribute("y", yTop2);
 
     if (isJuly) {
-      pct60.textContent = "50%";
-      pct90.textContent = "90%";
+      pct60.textContent = "~50%";
+      pct90.textContent = "~90%";
       rightTexts[0].textContent = "fewer new cards";
       rightTexts[0].setAttribute("y", yTop1); // flush with top of 50%
       rightTexts[1].textContent = "";
-      lineBot1.textContent = "fewer for the riskiest";
-      lineBot2.textContent = "borrowers";
+      lineBot1.textContent = "lower, with no sign";
+      lineBot2.textContent = "of recovery";
       lineBot3.textContent = "The gap remained stark";
       lineBot3.setAttribute("fill", "#fff");
       lineBot3.setAttribute("text-anchor", "middle");
@@ -973,8 +973,8 @@ function drawChart1(root) {
       lineBot3.setAttribute("y", yBot3);
       return;
     }
-    pct60.textContent = "60%";
-    pct90.textContent = "90%";
+    pct60.textContent = "~60%";
+    pct90.textContent = "~90%";
     rightTexts[0].textContent = "fewer new cards";
     rightTexts[0].setAttribute("y", yTop1);
     rightTexts[1].textContent = "versus Jan 2020";
@@ -1519,32 +1519,32 @@ function drawChart2(root) {
   let calloutW = isMobile ? 140 : 200;
   const calloutPy = isMobile ? 50 : 0;
 
-  // title / blue (purple) / pink — Outlook has no blue line
+  // title / blue (purple) / pink
   const calloutCopy = {
     0: {
       title: "March 2020",
       blue: "COVID-19 pandemic",
-      pink: "82.8% of credit applications were accepted",
+      pink: "Acceptance rates were at their highest point in the period",
     },
     2: {
       title: "Q3 2020",
       blue: "First lockdowns ease",
-      pink: "Applications rose to 16.3%, while acceptance fell to 72.6%",
+      pink: "Applications rebounded as economies reopened, but acceptance continued to fall",
     },
     3: {
       title: "Q4 2020",
       blue: "Second lockdowns across Europe",
-      pink: "A further decline in acceptance\nto 66.4%",
+      pink: "Applications fell again as restrictions returned, while acceptance continued to decline",
     },
     9: {
       title: "Feb 2022",
       blue: "Russia invades Ukraine",
-      pink: "Applications fell to 12.2% and acceptance dropped to 62.1%",
+      pink: "Credit demand weakened further as Europe faced a new economic shock",
     },
     11: {
-      title: "Outlook (Q4 2022)",
-      blue: "",
-      pink: "Both applications and acceptance recovered but remained below pre-pandemic levels",
+      title: "Q4 2022",
+      blue: "Credit begins to recover",
+      pink: "Applications and acceptance improved, but remained below pre-pandemic levels",
     },
   };
 
@@ -2290,9 +2290,9 @@ function initGraphic3(root) {
       body: "A one-off expense puts temporary pressure on her finances.",
     },
     pen: {
-      titleHtml: "Credit<br />access",
-      subtitle: "Loan declined",
-      body: "A conventional assessment struggles to distinguish temporary volatility from longer-term risk.",
+      titleHtml: "Employment",
+      subtitle: "Freelance + part-time",
+      body: "Moves between different forms of work.",
     },
     gauge: {
       titleHtml: "Credit<br />history",
@@ -2310,9 +2310,9 @@ function initGraphic3(root) {
       body: "A downturn reduces her income further.",
     },
     case: {
-      titleHtml: "Employment",
-      subtitle: "Freelance + part-time",
-      body: "Moves between different forms of work.",
+      titleHtml: "Credit<br />access",
+      subtitle: "Loan declined",
+      body: "A conventional assessment struggles to distinguish temporary volatility from longer-term risk.",
     },
   };
 
@@ -2538,11 +2538,30 @@ function initQuotes() {
 
 initQuotes();
 
+function initArticleTitle() {
+  const h1 = document.querySelector(".article-head h1");
+  if (!h1) return;
+  armRiseText(h1);
+  whenInView(
+    h1,
+    async () => {
+      if (!ANIM_ON) {
+        prepareRiseText(h1).forEach(showEl);
+        return;
+      }
+      await playRiseText(h1, { stagger: 42 });
+    },
+    0.5
+  );
+}
+
+initArticleTitle();
+
 function initCopyFade() {
   const main = document.querySelector(".main");
   if (!main) return;
   const els = [
-    ...main.querySelectorAll(".article-head h1, .article-head .dek"),
+    ...main.querySelectorAll(".article-head .dek"),
     ...main.querySelectorAll(":scope > h2"),
     ...[...main.querySelectorAll(":scope > p")].filter(
       (p) => !p.classList.contains("cta-wrap") && !p.classList.contains("source")
