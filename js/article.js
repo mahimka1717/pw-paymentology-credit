@@ -2442,7 +2442,7 @@ function initGraphic3(root) {
   const popups = {
     car: {
       titleHtml: "Unexpected<br />expense",
-      subtitle: "$1,000 car repair",
+      subtitle: "€1,000 car repair",
       body: "A one-off expense puts temporary pressure on her finances.",
     },
     pen: {
