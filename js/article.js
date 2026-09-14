@@ -376,6 +376,83 @@ async function showStaggerLTR(els, stagger = 28) {
   }
 }
 
+/** Cumulative length fractions [0..1] along a polyline. */
+function polylineFractions(pts) {
+  if (!pts.length) return [];
+  const cum = [0];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    cum.push(total);
+  }
+  if (total <= 0) return pts.map((_, i) => (pts.length === 1 ? 0 : i / (pts.length - 1)));
+  return cum.map((d) => d / total);
+}
+
+/** CSS cubic-bezier(x1,y1,x2,y2) progress for linear time t ∈ [0,1]. */
+function cubicBezierEase(t, x1, y1, x2, y2) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  let s = t;
+  for (let i = 0; i < 8; i++) {
+    const u = 1 - s;
+    const x = 3 * u * u * s * x1 + 3 * u * s * s * x2 + s * s * s;
+    const dx = 3 * u * u * x1 + 6 * u * s * (x2 - x1) + 3 * s * s * (1 - x2);
+    if (Math.abs(dx) < 1e-6) break;
+    s = Math.max(0, Math.min(1, s - (x - t) / dx));
+  }
+  const u = 1 - s;
+  return 3 * u * u * s * y1 + 3 * u * s * s * y2 + s * s * s;
+}
+
+/** Draw line (pathLength=1) while revealing dots as the stroke reaches each point. */
+async function drawLineWithDots(line, dotItems, duration = 1500) {
+  const items = [...(dotItems || [])].sort((a, b) => a.fraction - b.fraction);
+  if (!ANIM_ON) {
+    line?.classList.add("is-drawn");
+    items.forEach(({ el }) => showEl(el));
+    return;
+  }
+  if (!line) {
+    items.forEach(({ el }) => showEl(el));
+    return;
+  }
+
+  line.style.transition = "none";
+  line.style.strokeDashoffset = "1";
+  void line.getBoundingClientRect();
+
+  let idx = 0;
+  // Subtle ease-in / ease-out (near-linear)
+  const ease = (t) => cubicBezierEase(t, 0.4, 0.05, 0.6, 0.95);
+  const t0 = performance.now();
+
+  await new Promise((resolve) => {
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / duration);
+      const p = ease(t);
+      line.style.strokeDashoffset = String(1 - p);
+      while (idx < items.length && items[idx].fraction <= p + 1e-4) {
+        showEl(items[idx].el);
+        idx += 1;
+      }
+      if (t < 1) {
+        requestAnimationFrame(tick);
+        return;
+      }
+      line.classList.add("is-drawn");
+      line.style.removeProperty("transition");
+      line.style.removeProperty("stroke-dashoffset");
+      while (idx < items.length) {
+        showEl(items[idx].el);
+        idx += 1;
+      }
+      resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
 async function playChartSequence({
   wrap,
   titleEl,
@@ -384,17 +461,21 @@ async function playChartSequence({
   chrome,
   lines = [],
   dots = [],
+  /** Optional: per-line [{ el, fraction }, ...] — dots appear as the stroke reaches them */
+  lineDots = null,
   ann = [],
   extraFinal = [],
   lineGap = 900,
-  lineDuration = 2200,
+  lineDuration = 1500,
   dotStagger = 28,
 }) {
+  const allLineDots = lineDots ? lineDots.flat() : [];
   const finish = () => {
     wrap?.classList.add("is-anim-done");
     chrome?.forEach(showEl);
     lines.forEach((line) => line.classList.add("is-drawn"));
     dots.forEach(showEl);
+    allLineDots.forEach(({ el }) => showEl(el));
     ann.forEach(showEl);
     extraFinal.forEach(showEl);
     if (sourceEl) {
@@ -416,14 +497,22 @@ async function playChartSequence({
     wait(380).then(() => showEl(sourceEl));
   }
   await wait(980);
+  const lineDraws = [];
   for (let i = 0; i < lines.length; i++) {
-    lines[i].classList.add("is-drawn");
+    if (lineDots?.[i]) {
+      // Don't await here — lineGap is start→start, not end→start
+      lineDraws.push(drawLineWithDots(lines[i], lineDots[i], lineDuration));
+    } else {
+      lines[i].classList.add("is-drawn");
+    }
     if (i < lines.length - 1) await wait(lineGap);
   }
-  if (lines.length) await wait(lineDuration);
+  if (lineDraws.length) await Promise.all(lineDraws);
+  else if (lines.length) await wait(lineDuration);
   // Visual markers only, one LTR pass by x (small + large + % labels)
   const isHotspot = (el) => el.classList?.contains("ann-hotspot");
-  const pointEls = [...dots, ...ann].filter((el) => !isHotspot(el));
+  const synced = new Set(allLineDots.map(({ el }) => el));
+  const pointEls = [...dots, ...ann].filter((el) => !isHotspot(el) && !synced.has(el));
   if (pointEls.length) await showStaggerLTR(pointEls, dotStagger);
   ann.filter(isHotspot).forEach(showEl);
   extraFinal.forEach(showEl);
@@ -664,29 +753,31 @@ function drawChart1(root) {
   ficoG.appendChild(ficoLine);
   allG.appendChild(allLine);
 
+  const ficoSeriesDots = [];
   ficoPts.forEach(([x, y], i) => {
     if (annIdx.includes(i)) return;
-    ficoG.appendChild(
-      svgEl("circle", {
-        class: "dot",
-        cx: x,
-        cy: y,
-        r: dotR,
-        fill: PURPLE_SOFT,
-      })
-    );
+    const el = svgEl("circle", {
+      class: "dot",
+      cx: x,
+      cy: y,
+      r: dotR,
+      fill: PURPLE_SOFT,
+    });
+    ficoG.appendChild(el);
+    ficoSeriesDots.push({ i, el });
   });
+  const allSeriesDots = [];
   allPts.forEach(([x, y], i) => {
     if (annIdx.includes(i)) return;
-    allG.appendChild(
-      svgEl("circle", {
-        class: "dot",
-        cx: x,
-        cy: y,
-        r: dotR,
-        fill: PURPLE,
-      })
-    );
+    const el = svgEl("circle", {
+      class: "dot",
+      cx: x,
+      cy: y,
+      r: dotR,
+      fill: PURPLE,
+    });
+    allG.appendChild(el);
+    allSeriesDots.push({ i, el });
   });
 
   svg.append(ficoG, allG);
@@ -840,16 +931,16 @@ function drawChart1(root) {
     "90%"
   );
   const lineBot1 = add(
-    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 94 : 102), fill: PURPLE_SOFT },
-    "fewer new cards"
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 84 : 90), fill: PURPLE_SOFT },
+    "fewer new cards for"
   );
   const lineBot2 = add(
-    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 120 : 131), fill: PURPLE_SOFT },
-    "For the riskiest borrowers"
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 96 : 104), fill: PURPLE_SOFT },
+    "the riskiest borrowers"
   );
   const lineBot3 = add(
-    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 134 : 147), fill: PURPLE_SOFT },
-    "the market almost froze"
+    { ...rightAttrs, x: cx + padX, y: cy + (isMobile ? 134 : 147), fill: "#fff", "text-anchor": "middle" },
+    "The market almost froze"
   );
   rightTexts.push(lineBot1, lineBot2, lineBot3);
   g.appendChild(panel);
@@ -858,14 +949,10 @@ function drawChart1(root) {
   const setPopupCopy = (isJuly) => {
     const yTop1 = cy + (isMobile ? 44 : 48);
     const yTop2 = cy + (isMobile ? 56 : 62);
-    // April: label at 90% baseline, then two lines below
-    const yApr1 = cy + (isMobile ? 94 : 102);
-    const yApr2 = cy + (isMobile ? 120 : 131);
-    const yApr3 = cy + (isMobile ? 134 : 147);
-    // July: same interline as top pair; 2nd line flush with bottom of 90%
-    const yJul1 = cy + (isMobile ? 84 : 90);
-    const yJul2 = cy + (isMobile ? 96 : 104);
-    const yJul3 = cy + (isMobile ? 134 : 147);
+    // Bottom pair: same interline as top; 2nd line flush with bottom of 90%
+    const yBot1 = cy + (isMobile ? 84 : 90);
+    const yBot2 = cy + (isMobile ? 96 : 104);
+    const yBot3 = cy + (isMobile ? 134 : 147);
 
     rightTexts[0].setAttribute("y", yTop1);
     rightTexts[1].setAttribute("y", yTop2);
@@ -881,9 +968,9 @@ function drawChart1(root) {
       lineBot3.textContent = "The gap remained stark";
       lineBot3.setAttribute("fill", "#fff");
       lineBot3.setAttribute("text-anchor", "middle");
-      lineBot1.setAttribute("y", yJul1);
-      lineBot2.setAttribute("y", yJul2);
-      lineBot3.setAttribute("y", yJul3);
+      lineBot1.setAttribute("y", yBot1);
+      lineBot2.setAttribute("y", yBot2);
+      lineBot3.setAttribute("y", yBot3);
       return;
     }
     pct60.textContent = "60%";
@@ -891,14 +978,14 @@ function drawChart1(root) {
     rightTexts[0].textContent = "fewer new cards";
     rightTexts[0].setAttribute("y", yTop1);
     rightTexts[1].textContent = "versus Jan 2020";
-    lineBot1.textContent = "fewer new cards";
-    lineBot2.textContent = "For the riskiest borrowers";
-    lineBot3.textContent = "the market almost froze";
-    lineBot3.setAttribute("fill", PURPLE_SOFT);
-    lineBot3.setAttribute("text-anchor", "start");
-    lineBot1.setAttribute("y", yApr1);
-    lineBot2.setAttribute("y", yApr2);
-    lineBot3.setAttribute("y", yApr3);
+    lineBot1.textContent = "fewer new cards for";
+    lineBot2.textContent = "the riskiest borrowers";
+    lineBot3.textContent = "The market almost froze";
+    lineBot3.setAttribute("fill", "#fff");
+    lineBot3.setAttribute("text-anchor", "middle");
+    lineBot1.setAttribute("y", yBot1);
+    lineBot2.setAttribute("y", yBot2);
+    lineBot3.setAttribute("y", yBot3);
   };
 
   const alignPopup = (name, isJuly = false) => {
@@ -906,14 +993,14 @@ function drawChart1(root) {
     setPopupCopy(isJuly);
     const maxRightW = Math.max(
       0,
-      ...rightTexts.filter((t) => t !== lineBot3 || !isJuly).map((t) => t.getComputedTextLength())
+      ...rightTexts.filter((t) => t !== lineBot3).map((t) => t.getComputedTextLength())
     );
     const percentW = Math.max(pct60.getComputedTextLength(), pct90.getComputedTextLength());
     // 10px tighter than before (was 16 mobile / 24 desktop)
     const textGap = isMobile ? 6 : 14;
     calloutW = Math.max(
       padX * 2 + Math.max(monthLabel.getComputedTextLength(), percentW + textGap + maxRightW),
-      isJuly ? padX * 2 + lineBot3.getComputedTextLength() : 0,
+      padX * 2 + lineBot3.getComputedTextLength(),
       isMobile ? 190 : 200
     );
     calloutRect.setAttribute("width", calloutW);
@@ -922,7 +1009,7 @@ function drawChart1(root) {
     monthLabel.setAttribute("text-anchor", "middle");
     const textX = cx + padX + percentW + textGap;
     rightTexts.forEach((t) => {
-      if (t === lineBot3 && isJuly) {
+      if (t === lineBot3) {
         t.setAttribute("x", center);
         t.setAttribute("text-anchor", "middle");
         return;
@@ -997,36 +1084,41 @@ function drawChart1(root) {
     role: "button",
     tabindex: "0",
     "aria-pressed": "true",
+    "aria-label": "All borrowers",
   });
   const legendFico = svgEl("g", {
     class: "chart-legend chart-legend--fico",
     role: "button",
     tabindex: "0",
     "aria-pressed": "true",
+    "aria-label": "Highest-risk borrowers",
   });
   const legendRow1Y = isMobile ? 14 : 26;
   const legendRow2Y = isMobile ? 34 : 46;
+  const legendDotGap = 15;
   const l1 = svgEl("text", {
-    x: 0,
+    x: legendRight,
     y: legendRow1Y,
     fill: PURPLE,
     "font-size": fsLegend,
     "font-family": "Inter, sans-serif",
     "font-weight": "700",
     "dominant-baseline": "central",
+    "text-anchor": "end",
   });
   l1.textContent = "All borrowers";
   legendAll.appendChild(l1);
   const l2 = svgEl("text", {
-    x: 0,
+    x: legendRight,
     y: legendRow2Y,
     fill: PURPLE_SOFT,
     "font-size": fsLegend,
     "font-family": "Inter, sans-serif",
     "font-weight": "700",
     "dominant-baseline": "central",
+    "text-anchor": "end",
   });
-  l2.textContent = isMobile ? "FICO <580" : "FICO <580 (highest-risk)";
+  l2.textContent = "Highest-risk borrowers";
   legendFico.appendChild(l2);
   svg.append(legendAll, legendFico);
   root.appendChild(svg);
@@ -1038,44 +1130,66 @@ function drawChart1(root) {
     );
   }
 
-  const legendTextX = legendRight - Math.max(l1.getComputedTextLength(), l2.getComputedTextLength());
-  l1.setAttribute("x", legendTextX);
-  l2.setAttribute("x", legendTextX);
-  const legendX = legendTextX - 15;
-  legendAll.insertBefore(
-    svgEl("circle", { cx: legendX, cy: legendRow1Y, r: 8, fill: "#fff", filter: "url(#dot-shadow)" }),
-    l1
-  );
-  legendAll.insertBefore(
-    svgEl("circle", { class: "chart-legend__core", cx: legendX, cy: legendRow1Y, r: 6, fill: PURPLE }),
-    l1
-  );
-  legendAll.appendChild(
-    svgEl("rect", {
-      x: legendX - 10,
-      y: legendRow1Y - 12,
-      width: legendRight - legendX + 10,
-      height: 24,
-      fill: "transparent",
-    })
-  );
-  legendFico.insertBefore(
-    svgEl("circle", { cx: legendX, cy: legendRow2Y, r: 8, fill: "#fff", filter: "url(#dot-shadow)" }),
-    l2
-  );
-  legendFico.insertBefore(
-    svgEl("circle", { class: "chart-legend__core", cx: legendX, cy: legendRow2Y, r: 6, fill: PURPLE_SOFT }),
-    l2
-  );
-  legendFico.appendChild(
-    svgEl("rect", {
-      x: legendX - 10,
-      y: legendRow2Y - 12,
-      width: legendRight - legendX + 10,
-      height: 24,
-      fill: "transparent",
-    })
-  );
+  const allHit = svgEl("rect", {
+    y: legendRow1Y - 12,
+    height: 24,
+    fill: "transparent",
+  });
+  const ficoHit = svgEl("rect", {
+    y: legendRow2Y - 12,
+    height: 24,
+    fill: "transparent",
+  });
+  const allDotOuter = svgEl("circle", {
+    cy: legendRow1Y,
+    r: 8,
+    fill: "#fff",
+    filter: "url(#dot-shadow)",
+  });
+  const allDotCore = svgEl("circle", {
+    class: "chart-legend__core",
+    cy: legendRow1Y,
+    r: 6,
+    fill: PURPLE,
+  });
+  const ficoDotOuter = svgEl("circle", {
+    cy: legendRow2Y,
+    r: 8,
+    fill: "#fff",
+    filter: "url(#dot-shadow)",
+  });
+  const ficoDotCore = svgEl("circle", {
+    class: "chart-legend__core",
+    cy: legendRow2Y,
+    r: 6,
+    fill: PURPLE_SOFT,
+  });
+  legendAll.insertBefore(allDotOuter, l1);
+  legendAll.insertBefore(allDotCore, l1);
+  legendAll.appendChild(allHit);
+  legendFico.insertBefore(ficoDotOuter, l2);
+  legendFico.insertBefore(ficoDotCore, l2);
+  legendFico.appendChild(ficoHit);
+
+  const layoutLegend = () => {
+    const maxW = Math.max(l1.getComputedTextLength(), l2.getComputedTextLength());
+    const legendX = legendRight - maxW - legendDotGap;
+    // Left-align labels in a column; block flush to plot right edge
+    l1.setAttribute("text-anchor", "start");
+    l2.setAttribute("text-anchor", "start");
+    l1.setAttribute("x", legendRight - maxW);
+    l2.setAttribute("x", legendRight - maxW);
+    allDotOuter.setAttribute("cx", legendX);
+    allDotCore.setAttribute("cx", legendX);
+    ficoDotOuter.setAttribute("cx", legendX);
+    ficoDotCore.setAttribute("cx", legendX);
+    allHit.setAttribute("x", legendX - 10);
+    allHit.setAttribute("width", legendRight - legendX + 10);
+    ficoHit.setAttribute("x", legendX - 10);
+    ficoHit.setAttribute("width", legendRight - legendX + 10);
+  };
+  layoutLegend();
+  if (document.fonts?.ready) document.fonts.ready.then(layoutLegend);
 
   const setSeriesVisible = (key, on) => {
     seriesOn[key] = on;
@@ -1126,6 +1240,16 @@ function drawChart1(root) {
   const sourceEl = wrap.querySelector(".source");
 
   whenInView(wrap, async () => {
+    const fracsAll = polylineFractions(allPts);
+    const fracsFico = polylineFractions(ficoPts);
+    const lineDotsAll = [
+      ...allSeriesDots.map(({ i, el }) => ({ el, fraction: fracsAll[i] })),
+      ...annDots.map((pair, j) => ({ el: pair.all, fraction: fracsAll[annIdx[j]] })),
+    ];
+    const lineDotsFico = [
+      ...ficoSeriesDots.map(({ i, el }) => ({ el, fraction: fracsFico[i] })),
+      ...annDots.map((pair, j) => ({ el: pair.fico, fraction: fracsFico[annIdx[j]] })),
+    ];
     await playChartSequence({
       wrap,
       titleEl,
@@ -1133,8 +1257,9 @@ function drawChart1(root) {
       sourceEl,
       chrome: [...svg.querySelectorAll(".anim-chrome")],
       lines: [allLine, ficoLine],
-      dots: [...svg.querySelectorAll(".anim-dot")],
-      ann: [...svg.querySelectorAll(".anim-ann"), ...annLayer.querySelectorAll(".ann-dot")],
+      lineDots: [lineDotsAll, lineDotsFico],
+      dots: [],
+      ann: [...svg.querySelectorAll(".anim-ann")],
       lineGap: 1000,
     });
     pulseTour.startTour();
@@ -1298,8 +1423,8 @@ function drawChart2(root) {
   const guidesLayer = svgEl("g", { class: "chart-guides-layer" });
   svg.appendChild(guidesLayer);
 
-  // Entrance scrubber on Q4 2020 (index 3); handle circles added later, above series
-  const scrubIdx = 3;
+  // Entrance scrubber on March 2020 (index 0); handle circles added later, above series
+  const scrubIdx = 0;
   const scrubX = cxAt(scrubIdx);
   const scrubber = svgEl("g", {
     class: "anim-ann chart-scrubber",
@@ -1340,23 +1465,38 @@ function drawChart2(root) {
   applyG.appendChild(applyLine);
   acceptG.appendChild(acceptLine);
 
+  const applySeriesDots = [];
   applyPts.forEach(([x, y], i) => {
     if (labeledB[i]) return;
-    applyG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PINK }));
+    const el = svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PINK });
+    applyG.appendChild(el);
+    applySeriesDots.push({ i, el });
   });
+  const acceptSeriesDots = [];
   acceptPts.forEach(([x, y], i) => {
     if (labeledA[i]) return;
-    acceptG.appendChild(svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PURPLE }));
+    const el = svgEl("circle", { class: "dot", cx: x, cy: y, r: dotR, fill: PURPLE });
+    acceptG.appendChild(el);
+    acceptSeriesDots.push({ i, el });
   });
 
   svg.append(applyG, acceptG);
 
-  // Scrubber handle sits above series
+  // Scrubber handle sits above series; pulse ring so the drag marker stays “active”
   const scrubHandle = svgEl("g", {
     class: "anim-ann chart-scrubber-handle",
     "data-anim-x": scrubX,
     transform: `translate(${scrubX}, 0)`,
   });
+  scrubHandle.appendChild(
+    svgEl("circle", {
+      class: "scrub-handle-pulse",
+      cx: 0,
+      cy: plotT,
+      r: 7,
+      fill: axisX,
+    })
+  );
   scrubHandle.appendChild(
     svgEl("circle", {
       cx: 0,
@@ -2058,6 +2198,24 @@ function drawChart2(root) {
   const sourceEl = wrap.querySelector(".source");
 
   whenInView(wrap, async () => {
+    const fracsAccept = polylineFractions(acceptPts);
+    const fracsApply = polylineFractions(applyPts);
+    const lineDotsAccept = [
+      ...acceptSeriesDots.map(({ i, el }) => ({ el, fraction: fracsAccept[i] })),
+      ...chart2AnnDots.flatMap(({ i, pulseDots }) =>
+        pulseDots
+          .filter(({ key }) => key === "accept")
+          .map(({ el }) => ({ el, fraction: fracsAccept[i] }))
+      ),
+    ];
+    const lineDotsApply = [
+      ...applySeriesDots.map(({ i, el }) => ({ el, fraction: fracsApply[i] })),
+      ...chart2AnnDots.flatMap(({ i, pulseDots }) =>
+        pulseDots
+          .filter(({ key }) => key === "apply")
+          .map(({ el }) => ({ el, fraction: fracsApply[i] }))
+      ),
+    ];
     await playChartSequence({
       wrap,
       titleEl,
@@ -2065,9 +2223,10 @@ function drawChart2(root) {
       sourceEl,
       chrome: [...svg.querySelectorAll(".anim-chrome")],
       lines: [acceptLine, applyLine],
-      dots: [...svg.querySelectorAll(".anim-dot")],
-      ann: [...svg.querySelectorAll(".anim-ann"), ...annLayer.querySelectorAll(".ann-dot")],
-      extraFinal: [],
+      lineDots: [lineDotsAccept, lineDotsApply],
+      dots: [],
+      ann: [...svg.querySelectorAll(".anim-ann")],
+      lineGap: 1000,
     });
     applyScrubberAt(scrubIdx);
     pulseSelectedOrTour();
@@ -2293,8 +2452,12 @@ function initGraphic3(root) {
     hide,
   });
 
+  const rightmost = hotspots.reduce((best, h) =>
+    Number(h.dataset.x) > Number(best.dataset.x) ? h : best
+  );
+  const pulseOrder = [rightmost, ...hotspots.filter((h) => h !== rightmost)];
   const pulseTour = createPulseTour({
-    getSteps: () => hotspots.map((h) => [h]),
+    getSteps: () => pulseOrder.map((h) => [h]),
     applyPulse: (el, on) => el.classList.toggle("is-pulsing", !!on),
     intervalMs: 1800,
   });
@@ -2322,9 +2485,10 @@ function initGraphic3(root) {
       maya.classList.add("is-shown");
       await wait(500);
     }
-    for (let i = 0; i < hotspots.length; i++) {
-      showEl(hotspots[i]);
-      if (i < hotspots.length - 1) await wait(70);
+    const appearOrder = pulseOrder;
+    for (let i = 0; i < appearOrder.length; i++) {
+      showEl(appearOrder[i]);
+      if (i < appearOrder.length - 1) await wait(70);
     }
     await wait(200);
     root.classList.add("is-anim-done");
