@@ -43,12 +43,22 @@ function makeAnnDot(layer, svgW, svgH, x, y, color) {
   const el = document.createElement("div");
   el.className = "ann-dot";
   el.style.setProperty("--ann-color", color);
+  const rgb = hexToRgbChannels(color);
+  if (rgb) el.style.setProperty("--ann-pulse-rgb", rgb);
   el.style.left = `${(x / svgW) * 100}%`;
   el.style.top = `${(y / svgH) * 100}%`;
   el.dataset.x = String(x);
   el.dataset.y = String(y);
   layer.appendChild(el);
   return el;
+}
+
+/** "#rrggbb" → "r, g, b" for rgba(var(--x), a) pulses */
+function hexToRgbChannels(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
 function setAnnDotPulsing(el, on) {
@@ -406,15 +416,21 @@ function cubicBezierEase(t, x1, y1, x2, y2) {
 }
 
 /** Draw line (pathLength=1) while revealing dots as the stroke reaches each point. */
-async function drawLineWithDots(line, dotItems, duration = 1500) {
+async function drawLineWithDots(line, dotItems, duration = 1500, { onShow } = {}) {
   const items = [...(dotItems || [])].sort((a, b) => a.fraction - b.fraction);
   if (!ANIM_ON) {
     line?.classList.add("is-drawn");
-    items.forEach(({ el }) => showEl(el));
+    items.forEach((item) => {
+      showEl(item.el);
+      onShow?.(item);
+    });
     return;
   }
   if (!line) {
-    items.forEach(({ el }) => showEl(el));
+    items.forEach((item) => {
+      showEl(item.el);
+      onShow?.(item);
+    });
     return;
   }
 
@@ -433,7 +449,9 @@ async function drawLineWithDots(line, dotItems, duration = 1500) {
       const p = ease(t);
       line.style.strokeDashoffset = String(1 - p);
       while (idx < items.length && items[idx].fraction <= p + 1e-4) {
-        showEl(items[idx].el);
+        const item = items[idx];
+        showEl(item.el);
+        onShow?.(item);
         idx += 1;
       }
       if (t < 1) {
@@ -444,7 +462,9 @@ async function drawLineWithDots(line, dotItems, duration = 1500) {
       line.style.removeProperty("transition");
       line.style.removeProperty("stroke-dashoffset");
       while (idx < items.length) {
-        showEl(items[idx].el);
+        const item = items[idx];
+        showEl(item.el);
+        onShow?.(item);
         idx += 1;
       }
       resolve();
@@ -468,6 +488,7 @@ async function playChartSequence({
   lineGap = 900,
   lineDuration = 1500,
   dotStagger = 28,
+  onLineDotShow = null,
 }) {
   const allLineDots = lineDots ? lineDots.flat() : [];
   const finish = () => {
@@ -488,35 +509,46 @@ async function playChartSequence({
     return;
   }
 
-  await playRiseText(titleEl, { stagger: 42 });
-  if (subEl) await playRiseLines(subEl, { stagger: 140, startDelay: 80 });
-  await wait(220);
-  chrome.forEach(showEl);
+  const runLine = (i) => {
+    if (!lines[i]) return Promise.resolve();
+    if (lineDots?.[i]) {
+      return drawLineWithDots(lines[i], lineDots[i], lineDuration, {
+        onShow: (item) => onLineDotShow?.(item, i),
+      });
+    }
+    lines[i].classList.add("is-drawn");
+    return wait(lineDuration);
+  };
+
+  // Cascade starts: title 0 → sub 300 → grid/line1 600 → source 900; line2 = line1 + lineGap
+  const textTask = Promise.all([
+    playRiseText(titleEl, { stagger: 42 }),
+    subEl ? playRiseLines(subEl, { stagger: 140, startDelay: 300 }) : Promise.resolve(),
+  ]);
+  await wait(600);
+
+  // Grid + line 1 together; source at +300ms after grid (= 900 absolute)
+  chrome?.forEach(showEl);
   if (sourceEl) {
     sourceEl.classList.add("anim-fade");
-    wait(380).then(() => showEl(sourceEl));
+    wait(300).then(() => showEl(sourceEl));
   }
-  await wait(980);
-  const lineDraws = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (lineDots?.[i]) {
-      // Don't await here — lineGap is start→start, not end→start
-      lineDraws.push(drawLineWithDots(lines[i], lineDots[i], lineDuration));
-    } else {
-      lines[i].classList.add("is-drawn");
-    }
-    if (i < lines.length - 1) await wait(lineGap);
-  }
-  if (lineDraws.length) await Promise.all(lineDraws);
-  else if (lines.length) await wait(lineDuration);
-  // Visual markers only, one LTR pass by x (small + large + % labels)
-  const isHotspot = (el) => el.classList?.contains("ann-hotspot");
-  const synced = new Set(allLineDots.map(({ el }) => el));
-  const pointEls = [...dots, ...ann].filter((el) => !isHotspot(el) && !synced.has(el));
-  if (pointEls.length) await showStaggerLTR(pointEls, dotStagger);
-  ann.filter(isHotspot).forEach(showEl);
-  extraFinal.forEach(showEl);
-  await wait(200);
+
+  // Lines: start→start gap (line 2 still +lineGap after line 1)
+  const linesTask = (async () => {
+    const draws = lines.map((_, i) => wait(i * lineGap).then(() => runLine(i)));
+    await Promise.all(draws);
+    const isHotspot = (el) => el.classList?.contains("ann-hotspot");
+    const synced = new Set(allLineDots.map(({ el }) => el));
+    const pointEls = [...dots, ...ann].filter((el) => !isHotspot(el) && !synced.has(el));
+    if (pointEls.length) await showStaggerLTR(pointEls, dotStagger);
+    ann.filter(isHotspot).forEach(showEl);
+    extraFinal.forEach(showEl);
+    await wait(200);
+  })();
+
+  // Pulse (callers) stays tied to lines; wait text too so is-anim-done doesn't cut title short
+  await Promise.all([linesTask, textTask]);
   wrap?.classList.add("is-anim-done");
 }
 
@@ -1250,6 +1282,8 @@ function drawChart1(root) {
       ...ficoSeriesDots.map(({ i, el }) => ({ el, fraction: fracsFico[i] })),
       ...annDots.map((pair, j) => ({ el: pair.fico, fraction: fracsFico[annIdx[j]] })),
     ];
+    let pulseStarted = false;
+    const activeAnnEls = new Set(annDots.flatMap((pair) => [pair.all, pair.fico]));
     await playChartSequence({
       wrap,
       titleEl,
@@ -1261,8 +1295,13 @@ function drawChart1(root) {
       dots: [],
       ann: [...svg.querySelectorAll(".anim-ann")],
       lineGap: 1000,
+      onLineDotShow: ({ el }) => {
+        if (pulseStarted || !activeAnnEls.has(el)) return;
+        pulseStarted = true;
+        pulseTour.startTour();
+      },
     });
-    pulseTour.startTour();
+    if (!pulseStarted) pulseTour.startTour();
   }, 0.5);
 }
 
@@ -1642,7 +1681,7 @@ function drawChart2(root) {
         : [];
       pulseTour.lock(els);
     } else {
-      pulseTour.startTour();
+      pulseTour.stop();
     }
     syncPctLabels();
   };
@@ -1746,10 +1785,29 @@ function drawChart2(root) {
         .filter((els) => els.length),
   });
 
-  const snapQuarter = (x) => {
+  const popupIdx = Object.keys(calloutCopy)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  /** Nearest quarter of any kind (Voronoi cell by x). */
+  const nearestQuarter = (x) => {
     let best = 0;
     let bestDist = Infinity;
     for (let i = 0; i < n; i++) {
+      const d = Math.abs(cxAt(i) - x);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  };
+
+  /** Nearest quarter that has a callout (for snap-on-release). */
+  const snapQuarter = (x) => {
+    let best = popupIdx[0] ?? 0;
+    let bestDist = Infinity;
+    for (const i of popupIdx) {
       const d = Math.abs(cxAt(i) - x);
       if (d < bestDist) {
         bestDist = d;
@@ -1780,7 +1838,7 @@ function drawChart2(root) {
     committedScrub = i;
     currentScrub = i;
     const x = cxAt(i);
-    if (quarterHasActive(i)) showCalloutAt(i, x, { animate });
+    if (quarterHasActive(i) && calloutCopy[i]) showCalloutAt(i, x, { animate });
     else {
       moveScrubberTo(x, { animate });
       hideCallout();
@@ -1790,9 +1848,12 @@ function drawChart2(root) {
   const scrubDragTo = (x) => {
     const clamped = clampScrubX(x);
     moveScrubberTo(clamped, { animate: false });
-    const i = snapQuarter(clamped);
-    if (quarterHasActive(i)) {
-      setCalloutContent(i);
+    const i = nearestQuarter(clamped);
+    // Only show popup / % / pulse while inside an active (callout) quarter
+    if (calloutCopy[i] && quarterHasActive(i)) {
+      if (calloutQuarter !== i || !calloutOpen) {
+        setCalloutContent(i);
+      }
       placeCalloutPanel(clamped);
       callout.classList.add("is-visible");
       calloutOpen = true;
@@ -2216,6 +2277,11 @@ function drawChart2(root) {
           .map(({ el }) => ({ el, fraction: fracsApply[i] }))
       ),
     ];
+    let firstPulseStarted = false;
+    const firstPulseDots = chart2AnnDots.find((d) => d.i === scrubIdx)?.pulseDots || [];
+    const firstActiveEls = firstPulseDots.map(({ el }) => el);
+    const firstActiveSet = new Set(firstActiveEls);
+    const scrubAnn = new Set([scrubber, scrubHandle]);
     await playChartSequence({
       wrap,
       titleEl,
@@ -2225,9 +2291,21 @@ function drawChart2(root) {
       lines: [acceptLine, applyLine],
       lineDots: [lineDotsAccept, lineDotsApply],
       dots: [],
-      ann: [...svg.querySelectorAll(".anim-ann")],
+      ann: [...svg.querySelectorAll(".anim-ann")].filter((el) => !scrubAnn.has(el)),
       lineGap: 1000,
+      onLineDotShow: ({ el }) => {
+        if (firstPulseStarted || !firstActiveSet.has(el)) return;
+        const ready = firstPulseDots
+          .filter(({ key }) => seriesOn[key])
+          .map(({ el: dot }) => dot);
+        if (!ready.length || !ready.every((dot) => dot.classList.contains("is-shown"))) return;
+        firstPulseStarted = true;
+        pulseTour.lock(ready);
+      },
     });
+    // Scrubber line, handle, and popup only after the full chart draw
+    showEl(scrubber);
+    showEl(scrubHandle);
     applyScrubberAt(scrubIdx);
     pulseSelectedOrTour();
   }, 0.5);

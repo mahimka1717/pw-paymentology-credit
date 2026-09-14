@@ -603,6 +603,7 @@ h1 {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
+  --ann-pulse-rgb: 129, 56, 255;
 }
 
 .hotspot.is-pulsing {
@@ -640,20 +641,20 @@ h1 {
   0% {
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.22),
-      0 0 0 0 rgba(129, 56, 255, 0.7),
-      0 0 0 0 rgba(129, 56, 255, 0.35);
+      0 0 0 0 rgba(var(--ann-pulse-rgb), 0.7),
+      0 0 0 0 rgba(var(--ann-pulse-rgb), 0.35);
   }
   55% {
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.22),
-      0 0 0 18px rgba(129, 56, 255, 0),
-      0 0 0 32px rgba(129, 56, 255, 0);
+      0 0 0 18px rgba(var(--ann-pulse-rgb), 0),
+      0 0 0 32px rgba(var(--ann-pulse-rgb), 0);
   }
   100% {
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.22),
-      0 0 0 0 rgba(129, 56, 255, 0),
-      0 0 0 0 rgba(129, 56, 255, 0);
+      0 0 0 0 rgba(var(--ann-pulse-rgb), 0),
+      0 0 0 0 rgba(var(--ann-pulse-rgb), 0);
   }
 }
 
@@ -978,6 +979,7 @@ html.no-animate .anim-dot,
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 1;
+  --ann-pulse-rgb: 129, 56, 255;
 }
 
 .ann-dot::after {
