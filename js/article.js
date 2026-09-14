@@ -1553,7 +1553,15 @@ function drawChart2(root) {
       fill: axisX,
     })
   );
-  svg.appendChild(scrubHandle);
+  const scrubHandleHit = svgEl("circle", {
+    class: "scrub-handle-hit",
+    cx: 0,
+    cy: plotT,
+    r: isMobile ? 22 : 18,
+    fill: "transparent",
+  });
+  scrubHandle.appendChild(scrubHandleHit);
+  // Appended above scrub rail later so hover on the top marker works
 
   let calloutW = isMobile ? 140 : 200;
   const calloutPy = isMobile ? 50 : 0;
@@ -1669,17 +1677,20 @@ function drawChart2(root) {
   };
 
   let pulseTour = null;
-  let calloutOpen = false;
-  let calloutQuarter = -1;
+  let activeQuarter = -1;
+  let calloutVisible = false;
+  let popupHover = 0;
+  let dragging = false;
 
   const pulseSelectedOrTour = () => {
     if (!pulseTour) return;
-    if (calloutOpen && calloutQuarter >= 0) {
-      const item = chart2AnnDots.find((d) => d.i === calloutQuarter);
+    if (activeQuarter >= 0) {
+      const item = chart2AnnDots.find((d) => d.i === activeQuarter);
       const els = item
         ? item.pulseDots.filter(({ key }) => seriesOn[key]).map(({ el }) => el)
         : [];
-      pulseTour.lock(els);
+      if (els.length) pulseTour.lock(els);
+      else pulseTour.stop();
     } else {
       pulseTour.stop();
     }
@@ -1688,7 +1699,7 @@ function drawChart2(root) {
 
   const syncPctLabels = () => {
     chart2AnnDots.forEach(({ i, pulseDots }) => {
-      const active = calloutOpen && calloutQuarter === i;
+      const active = activeQuarter === i;
       pulseDots.forEach(({ key, label }) => {
         if (!label) return;
         label.classList.toggle("is-active", !!(active && seriesOn[key]));
@@ -1696,22 +1707,27 @@ function drawChart2(root) {
     });
   };
 
-  const showCalloutAt = (i, x = cxAt(i), { animate = false } = {}) => {
+  const showPopup = (i, x = cxAt(i)) => {
+    if (!calloutCopy[i]) return;
     setCalloutContent(i);
-    setScrubEase(animate);
     placeCalloutPanel(x);
-    moveScrubberTo(x, { animate });
     callout.classList.add("is-visible");
-    calloutOpen = true;
-    calloutQuarter = i;
-    pulseSelectedOrTour();
+    calloutVisible = true;
   };
 
-  const hideCallout = () => {
+  const hidePopup = () => {
     callout.classList.remove("is-visible");
-    calloutOpen = false;
-    calloutQuarter = -1;
-    pulseSelectedOrTour();
+    calloutVisible = false;
+  };
+
+  const enterPopupHover = (i, x = cxAt(i)) => {
+    popupHover += 1;
+    showPopup(i, x);
+  };
+
+  const leavePopupHover = () => {
+    popupHover = Math.max(0, popupHover - 1);
+    if (popupHover === 0 && !dragging) hidePopup();
   };
 
   const seriesOn = { accept: true, apply: true };
@@ -1834,33 +1850,32 @@ function drawChart2(root) {
   const quarterHasActive = (i) =>
     (seriesOn.accept && labeledA[i]) || (seriesOn.apply && labeledB[i]);
 
-  const applyScrubberAt = (i, { animate = false } = {}) => {
+  const applyScrubberAt = (i, { animate = false, popup = false } = {}) => {
     committedScrub = i;
     currentScrub = i;
+    activeQuarter = i;
     const x = cxAt(i);
-    if (quarterHasActive(i) && calloutCopy[i]) showCalloutAt(i, x, { animate });
-    else {
-      moveScrubberTo(x, { animate });
-      hideCallout();
-    }
+    setScrubEase(animate);
+    moveScrubberTo(x, { animate });
+    if (popup && quarterHasActive(i) && calloutCopy[i]) showPopup(i, x);
+    else if (!popup && popupHover === 0) hidePopup();
+    pulseSelectedOrTour();
   };
 
   const scrubDragTo = (x) => {
     const clamped = clampScrubX(x);
     moveScrubberTo(clamped, { animate: false });
     const i = nearestQuarter(clamped);
-    // Only show popup / % / pulse while inside an active (callout) quarter
+    // Values + pulse while inside an active quarter; popup only while dragging / hover
     if (calloutCopy[i] && quarterHasActive(i)) {
-      if (calloutQuarter !== i || !calloutOpen) {
-        setCalloutContent(i);
-      }
-      placeCalloutPanel(clamped);
-      callout.classList.add("is-visible");
-      calloutOpen = true;
-      calloutQuarter = i;
+      activeQuarter = i;
+      currentScrub = i;
+      if (dragging) showPopup(i, clamped);
       pulseSelectedOrTour();
     } else {
-      hideCallout();
+      activeQuarter = -1;
+      hidePopup();
+      pulseSelectedOrTour();
     }
   };
 
@@ -1874,11 +1889,10 @@ function drawChart2(root) {
     fill: "transparent",
   });
 
-  let dragging = false;
   let activePointerId = null;
 
   const jumpToQuarter = (i) => {
-    applyScrubberAt(i, { animate: false });
+    applyScrubberAt(i, { animate: false, popup: true });
     scrubRail.setAttribute("aria-valuenow", String(i));
   };
 
@@ -1907,7 +1921,7 @@ function drawChart2(root) {
     const i = snapQuarter(clientToSvgX(e.clientX));
     setScrubEase(false);
     requestAnimationFrame(() => {
-      applyScrubberAt(i, { animate: true });
+      applyScrubberAt(i, { animate: true, popup: popupHover > 0 });
       scrubRail.setAttribute("aria-valuenow", String(i));
     });
   };
@@ -1938,6 +1952,19 @@ function drawChart2(root) {
   scrubRail.setAttribute("aria-valuemin", "0");
   scrubRail.setAttribute("aria-valuemax", String(n - 1));
   scrubRail.setAttribute("aria-valuenow", String(scrubIdx));
+
+  scrubHandleHit.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch" || dragging) return;
+    const q = activeQuarter >= 0 ? activeQuarter : committedScrub;
+    if (q < 0 || !calloutCopy[q]) return;
+    enterPopupHover(q, cxAt(q));
+  });
+  scrubHandleHit.addEventListener("pointerleave", (e) => {
+    if (e.pointerType === "touch" || dragging) return;
+    leavePopupHover();
+  });
+  scrubHandleHit.addEventListener("pointerdown", startScrubDrag);
+  scrubHandleHit.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
 
   svg.appendChild(
     svgEl("line", {
@@ -2155,6 +2182,8 @@ function drawChart2(root) {
   }
 
   svg.appendChild(scrubRail);
+  // Handle above the rail so the top pup receives hover
+  svg.appendChild(scrubHandle);
 
   // Hit targets above scrub rail so annotated dots stay tappable
   const annScrubHits = [];
@@ -2172,9 +2201,15 @@ function drawChart2(root) {
       hit.addEventListener("pointerdown", (e) => e.stopPropagation());
       hit.addEventListener("pointerenter", (e) => {
         if (e.pointerType === "touch" || dragging || !seriesOn[key]) return;
-        if (i === committedScrub) return;
-        applyScrubberAt(i, { animate: true });
-        scrubRail.setAttribute("aria-valuenow", String(i));
+        if (i !== committedScrub) {
+          applyScrubberAt(i, { animate: true, popup: false });
+          scrubRail.setAttribute("aria-valuenow", String(i));
+        }
+        enterPopupHover(i, cxAt(i));
+      });
+      hit.addEventListener("pointerleave", (e) => {
+        if (e.pointerType === "touch" || dragging) return;
+        leavePopupHover();
       });
       hit.addEventListener("click", (e) => {
         e.preventDefault();
@@ -2303,10 +2338,10 @@ function drawChart2(root) {
         pulseTour.lock(ready);
       },
     });
-    // Scrubber line, handle, and popup only after the full chart draw
+    // Scrubber line + handle after full draw; values/pulse on, popup only on hover
     showEl(scrubber);
     showEl(scrubHandle);
-    applyScrubberAt(scrubIdx);
+    applyScrubberAt(scrubIdx, { popup: false });
     pulseSelectedOrTour();
   }, 0.5);
 }

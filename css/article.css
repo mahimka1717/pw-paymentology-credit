@@ -1148,7 +1148,18 @@ html.no-animate .chart-pct-label.is-active {
 }
 
 .chart-scrubber-handle {
+  pointer-events: auto;
+}
+
+.chart-scrubber-handle > circle:not(.scrub-handle-hit) {
   pointer-events: none;
+}
+
+.scrub-handle-hit {
+  pointer-events: all;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .scrub-handle-pulse {
