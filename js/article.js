@@ -1312,9 +1312,9 @@ function drawChart2(root) {
   const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
   const h = isMobile ? 460 : 420;
   const pad = isTablet
-    ? { l: 28, r: 28, t: 62, b: 56 }
+    ? { l: 28, r: 28, t: 72, b: 56 }
     : isMobile
-      ? { l: 20, r: 20, t: 62, b: 56 }
+      ? { l: 20, r: 20, t: 72, b: 56 }
       : { l: 0, r: 12, t: 56, b: 56 };
   const fs = isMobile ? 8 : 15;
   const fsSm = isMobile ? 11 : 12;
@@ -1740,7 +1740,8 @@ function drawChart2(root) {
       const [x, y] = acceptPts[i];
       const t = svgEl("text", {
         class: "chart-pct-label",
-        x,
+        // 3rd purple label (66.4%): nudge right on mobile
+        x: isMobile && i === 3 ? x + 10 : x,
         y: y - (isMobile ? 14 : 18),
         fill: PURPLE,
         "font-size": fsPct,
@@ -1921,7 +1922,11 @@ function drawChart2(root) {
     const i = snapQuarter(clientToSvgX(e.clientX));
     setScrubEase(false);
     requestAnimationFrame(() => {
-      applyScrubberAt(i, { animate: true, popup: popupHover > 0 });
+      // Mobile: scrub release (tap or drag) keeps popup; desktop: hover only
+      const keepPopup = isMobile
+        ? !!(calloutCopy[i] && quarterHasActive(i))
+        : popupHover > 0;
+      applyScrubberAt(i, { animate: true, popup: keepPopup });
       scrubRail.setAttribute("aria-valuenow", String(i));
     });
   };
@@ -2221,6 +2226,44 @@ function drawChart2(root) {
       annScrubHits.push(hit);
     });
   });
+
+  // Mobile: tap anywhere except active dots closes popup; drag-end keeps it open
+  if (isMobile) {
+    if (root._chart2TouchAbort) root._chart2TouchAbort.abort();
+    root._chart2TouchAbort = new AbortController();
+    const { signal } = root._chart2TouchAbort;
+
+    const isActiveDotTarget = (node) => {
+      const el =
+        (node && typeof node.closest === "function" && node.closest(".ann-dot-scrub-hit")) ||
+        (node?.classList?.contains?.("ann-dot-scrub-hit") ? node : null);
+      if (!el) return false;
+      const key = el.getAttribute("data-series");
+      return !!(key && seriesOn[key]);
+    };
+
+    const isScrubTarget = (node) =>
+      !!(
+        node === scrubRail ||
+        node === scrubHandleHit ||
+        (node && typeof node.closest === "function" && node.closest(".scrub-rail, .scrub-handle-hit")) ||
+        node?.classList?.contains?.("scrub-handle-hit") ||
+        node?.classList?.contains?.("scrub-rail")
+      );
+
+    document.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!calloutVisible || dragging) return;
+        if (e.pointerType === "mouse") return;
+        if (isActiveDotTarget(e.target)) return;
+        // Scrub: don't close — release keeps popup (tap or drag)
+        if (isScrubTarget(e.target)) return;
+        hidePopup();
+      },
+      { capture: true, signal }
+    );
+  }
 
   svg.append(legendAccept, legendApply);
   root.appendChild(svg);
