@@ -2688,7 +2688,7 @@ function initQuotes() {
         await wait(220);
       }
       quote.classList.add("is-anim-done");
-    }, 0.5);
+    }, 1);
   });
 }
 
@@ -2729,7 +2729,7 @@ function initCopyFade() {
       () => {
         el.classList.add("is-shown");
       },
-      0.5
+      1
     );
   });
 }
@@ -2746,7 +2746,7 @@ function initReadMore() {
       return;
     }
     btn.classList.add("is-shown");
-  });
+  }, 1);
 }
 
 initReadMore();
@@ -2761,3 +2761,138 @@ function initGraphic0() {
 }
 
 initGraphic0();
+
+function initGlassParallax() {
+  const layer = document.querySelector(".glass-layer");
+  const main = document.querySelector(".main");
+  if (!layer || !main) return;
+
+  const mq = window.matchMedia("(min-width: 861px)");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const glasses = [...layer.querySelectorAll(".glass")];
+
+  const anchors = {
+    0: {
+      between: ["#chart-1-wrap", "#chart-2-wrap"],
+    },
+    1: {
+      between: ["#chart-2-wrap", ".graphic-3"],
+    },
+    2: {
+      target: "#heading-infrastructure",
+    },
+    3: {
+      target: ".cta-wrap",
+      align: "end",
+    },
+  };
+
+  const docY = (el) => el.getBoundingClientRect().top + window.scrollY;
+
+  let base = glasses.map(() => ({ x: 0, y: 0, h: 0 }));
+  let ticking = false;
+
+  const layout = () => {
+    if (!mq.matches) {
+      glasses.forEach((el) => {
+        el.style.removeProperty("--glass-x");
+        el.style.removeProperty("--glass-y");
+      });
+      return;
+    }
+
+    const gutter = 4;
+    const mainRect = main.getBoundingClientRect();
+    const pageRect = layer.getBoundingClientRect();
+    // Text column only (prose), not full-width charts
+    const proseEl =
+      main.querySelector(".article-head") ||
+      main.querySelector(":scope > p") ||
+      main.querySelector(":scope > h2");
+    const proseRect = proseEl?.getBoundingClientRect() || mainRect;
+    const colL = proseRect.left;
+    const colR = proseRect.right;
+    const pageTop = docY(layer);
+    const pageLeft = pageRect.left;
+
+    glasses.forEach((el, i) => {
+      const conf = anchors[i] || {};
+      const w = Number(el.dataset.width) || el.offsetWidth || 320;
+      // Force width before measuring height (first layout)
+      el.style.width = `${w}px`;
+      const h = el.offsetHeight || w * 0.7;
+      let y = 0;
+
+      if (conf.between) {
+        const a = document.querySelector(conf.between[0]);
+        const b = document.querySelector(conf.between[1]);
+        if (a && b) {
+          const gapTop = docY(a) + a.offsetHeight;
+          const gapBot = docY(b);
+          y = (gapTop + gapBot) / 2 - h / 2;
+        }
+      } else if (conf.target) {
+        const t = document.querySelector(conf.target);
+        if (t) {
+          if (conf.align === "end") {
+            y = docY(t) + t.offsetHeight / 2 - h * 0.55;
+          } else {
+            y = docY(t) - h * 0.15;
+          }
+        }
+      }
+
+      const side = el.dataset.side;
+      // Keep clear of the content column; allow clipping at the viewport edge
+      const x =
+        side === "left"
+          ? colL - gutter - w - pageLeft
+          : colR + gutter - pageLeft;
+
+      base[i] = { x, y: y - pageTop, h };
+      el.style.setProperty("--glass-x", `${x}px`);
+    });
+
+    paint();
+  };
+
+  const paint = () => {
+    if (!mq.matches) return;
+    const vh = window.innerHeight;
+    const motionOff = reduceMotion.matches || document.documentElement.classList.contains("no-animate");
+    const layerTop = layer.getBoundingClientRect().top;
+
+    glasses.forEach((el, i) => {
+      const b = base[i];
+      if (!b) return;
+      const speed = motionOff ? 0 : Number(el.dataset.parallax) || 0.25;
+      // Lag behind scroll: move less than the page as the element crosses the viewport
+      const screenY = b.y + layerTop;
+      const center = screenY + b.h / 2;
+      const drift = (vh * 0.5 - center) * speed;
+      el.style.setProperty("--glass-y", `${b.y + drift}px`);
+    });
+  };
+
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      paint();
+      ticking = false;
+    });
+  };
+
+  layout();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", () => {
+    layout();
+  });
+  if (document.fonts?.ready) document.fonts.ready.then(layout);
+  // Charts remount async — relayout after they settle
+  setTimeout(layout, 400);
+  setTimeout(layout, 1200);
+  mq.addEventListener?.("change", layout);
+}
+
+initGlassParallax();
