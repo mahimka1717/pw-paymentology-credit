@@ -1,0 +1,12 @@
+{
+  "name": "pw-paymentology-credit",
+  "private": true,
+  "scripts": {
+    "minify": "node scripts/minify.mjs",
+    "build": "npm run minify"
+  },
+  "devDependencies": {
+    "csso": "^5.0.5",
+    "terser": "^5.51.2"
+  }
+}

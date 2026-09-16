@@ -2789,6 +2789,16 @@ function initGlassParallax() {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const glasses = [...layer.querySelectorAll(".glass")];
 
+  const hydrateGlassImages = () => {
+    if (!mq.matches) return;
+    glasses.forEach((el) => {
+      const src = el.dataset.src;
+      if (src && el.getAttribute("src") !== src) el.src = src;
+    });
+  };
+  hydrateGlassImages();
+  mq.addEventListener?.("change", hydrateGlassImages);
+
   const anchors = {
     0: {
       between: ["#chart-1-wrap", "#chart-2-wrap"],

@@ -1,6 +1,6 @@
 @font-face {
   font-family: "PP Monument Extended";
-  src: url("../public/fonts/PPMonumentExtended-Regular.otf") format("opentype");
+  src: url("../public/fonts/PPMonumentExtended-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: "PP Monument Extended";
-  src: url("../public/fonts/PPMonumentExtended-Bold.otf") format("opentype");
+  src: url("../public/fonts/PPMonumentExtended-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -16,7 +16,7 @@
 
 @font-face {
   font-family: "PP Monument Extended";
-  src: url("../public/fonts/PPMonumentExtended-Black.otf") format("opentype");
+  src: url("../public/fonts/PPMonumentExtended-Black.woff2") format("woff2");
   font-weight: 900;
   font-style: normal;
   font-display: swap;
@@ -24,7 +24,7 @@
 
 @font-face {
   font-family: Inter;
-  src: url("../public/fonts/Inter-Variable.ttf") format("truetype");
+  src: url("../public/fonts/Inter-Variable.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -232,7 +232,9 @@ p,
   left: 0;
   width: 100%;
   height: var(--hero-h);
-  background: url("../public/img/hero.jpg") 50% 0 / cover no-repeat;
+  object-fit: cover;
+  object-position: center top;
+  max-width: none;
 }
 
 .graphic-0 {
@@ -1649,7 +1651,6 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     top: 0;
     left: 0;
     height: 360px;
-    background: url("../public/img/hero.jpg") 50% 0 / cover no-repeat;
   }
 
   .graphic-0 {

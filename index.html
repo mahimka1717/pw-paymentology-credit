@@ -4,7 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Designing Credit for a World That Doesn’t Stabilise</title>
-  <link rel="stylesheet" href="css/article.css" />
+  <link
+    rel="preload"
+    as="image"
+    type="image/webp"
+    href="public/img/hero-1600.webp"
+    imagesrcset="public/img/hero-1000.webp 1000w, public/img/hero-1600.webp 1600w"
+    imagesizes="100vw"
+    fetchpriority="high"
+  />
+  <link
+    rel="preload"
+    as="font"
+    type="font/woff2"
+    href="public/fonts/PPMonumentExtended-Black.woff2"
+    crossorigin
+  />
+  <link rel="stylesheet" href="css/article.min.css" />
 </head>
 <body>
 
@@ -12,50 +28,72 @@
     <div class="glass-layer" aria-hidden="true">
       <img
         class="glass glass--0 glass--knockout"
-        src="public/img/glass0.png"
+        data-src="public/img/glass0.webp"
         alt=""
-        width="1536"
-        height="1024"
+        width="800"
+        height="533"
         data-side="right"
         data-parallax="0.22"
         data-width="380"
+        decoding="async"
       />
       <img
         class="glass glass--1 glass--screen"
-        src="public/img/glass1.png"
+        data-src="public/img/glass1.webp"
         alt=""
-        width="1254"
-        height="1254"
+        width="800"
+        height="800"
         data-side="left"
         data-parallax="0.3"
         data-width="300"
+        decoding="async"
       />
       <img
         class="glass glass--2 glass--knockout"
-        src="public/img/glass2.png"
+        data-src="public/img/glass2.webp"
         alt=""
-        width="1536"
-        height="1024"
+        width="800"
+        height="533"
         data-side="right"
         data-parallax="0.18"
         data-width="340"
+        decoding="async"
       />
       <img
         class="glass glass--3 glass--knockout"
-        src="public/img/glass3.png"
+        data-src="public/img/glass3.webp"
         alt=""
-        width="1536"
-        height="1024"
+        width="800"
+        height="533"
         data-side="left"
         data-parallax="0.26"
         data-width="360"
+        decoding="async"
       />
     </div>
 
     <section class="hero-block">
-      <div class="hero-image" role="img" aria-label="Abstract landscape"></div>
+      <img
+        class="hero-image"
+        src="public/img/hero-1600.webp"
+        srcset="public/img/hero-1000.webp 1000w, public/img/hero-1600.webp 1600w"
+        sizes="100vw"
+        width="1600"
+        height="896"
+        alt=""
+        fetchpriority="high"
+        decoding="async"
+      />
       <figure class="graphic graphic-0">
-        <img src="public/img/g0.jpg" alt="Delivery rider on a scooter at night" />
+        <img
+          src="public/img/g0-1200.webp"
+          srcset="public/img/g0-800.webp 800w, public/img/g0-1200.webp 1200w"
+          sizes="(max-width: 860px) 100vw, min(1084px, 100vw)"
+          width="1200"
+          height="800"
+          alt="Delivery rider on a scooter at night"
+          decoding="async"
+        />
       </figure>
     </section>
 
@@ -105,7 +143,14 @@
         </p>
         <footer>
           <div class="quote-img">
-            <img src="public/img/qa1.jpg" alt="Rob Macmillan" />
+            <img
+              src="public/img/qa1.webp"
+              width="256"
+              height="218"
+              alt="Rob Macmillan"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
           <div class="quote-meta">
             <cite>Rob Macmillan</cite>
@@ -145,7 +190,14 @@
         </p>
         <footer>
           <div class="quote-img">
-            <img src="public/img/qa2.jpg" alt="Nida Khan" />
+            <img
+              src="public/img/qa2.webp"
+              width="256"
+              height="218"
+              alt="Nida Khan"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
           <div class="quote-meta">
             <cite>Nida Khan</cite>
@@ -182,7 +234,16 @@
           <div class="graphic-3-media">
             <div class="graphic-3-scene">
               <div class="graphic-3-photo">
-                <img src="public/img/g3.jpg" alt="Freelance designer working at a desk" />
+                <img
+                  src="public/img/g3-1200.webp"
+                  srcset="public/img/g3-800.webp 800w, public/img/g3-1200.webp 1200w"
+                  sizes="(max-width: 860px) 100vw, min(1084px, 100vw)"
+                  width="1200"
+                  height="811"
+                  alt="Freelance designer working at a desk"
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
               <div class="maya">
                 <strong>Maya, 32</strong>
@@ -361,6 +422,6 @@
     </main>
   </div>
 
-  <script src="js/article.js"></script>
+  <script src="js/article.min.js" defer></script>
 </body>
 </html>
