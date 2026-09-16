@@ -210,6 +210,71 @@ function whenInView(el, onEnter, threshold = 0.12) {
   window.setTimeout(checkNow, 400);
 }
 
+const MOBILE_MQ = "(max-width: 860px)";
+const isMobileView = () => window.matchMedia(MOBILE_MQ).matches;
+
+/**
+ * Mobile copy entrance: fire when the element's top is `insetPx` past the
+ * viewport bottom (i.e. 100px of the element has entered from below).
+ */
+function whenTopPastViewportBottom(el, onEnter, insetPx = 100) {
+  if (!el) return;
+  if (!ANIM_ON) {
+    el.classList.add("is-in", "is-anim-done");
+    onEnter?.(el);
+    return;
+  }
+
+  let done = false;
+  let io = null;
+
+  const ready = () => {
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (vh <= 0) return false;
+    return el.getBoundingClientRect().top <= vh - insetPx;
+  };
+
+  const cleanup = () => {
+    window.removeEventListener("scroll", onScroll);
+    window.removeEventListener("resize", onScroll);
+    io?.disconnect();
+    io = null;
+  };
+
+  const run = () => {
+    if (done) return;
+    done = true;
+    cleanup();
+    el.classList.add("is-in");
+    onEnter?.(el);
+  };
+
+  const onScroll = () => {
+    if (done) return;
+    if (ready()) run();
+  };
+
+  io = new IntersectionObserver(() => onScroll(), {
+    rootMargin: `0px 0px -${insetPx}px 0px`,
+    threshold: [0, 0.01],
+  });
+  io.observe(el);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll);
+  requestAnimationFrame(() => {
+    onScroll();
+    requestAnimationFrame(onScroll);
+  });
+  window.setTimeout(onScroll, 100);
+  window.setTimeout(onScroll, 400);
+}
+
+/** Desktop: ratio threshold. Mobile: top 100px past viewport bottom. */
+function whenCopyInView(el, onEnter, desktopThreshold = 0.5) {
+  if (isMobileView()) whenTopPastViewportBottom(el, onEnter, 100);
+  else whenInView(el, onEnter, desktopThreshold);
+}
+
 /** Split element text into word spans for rise-in animation. Keeps <br>. */
 function prepareRiseText(el) {
   if (!el || el.dataset.riseReady) return [...el.querySelectorAll(".anim-rise")];
@@ -2453,7 +2518,7 @@ function initGraphic3(root) {
   };
 
   const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top
-  const MOBILE_LINE_GAP = 48; // px between popup bottom and point (longer footnote on mobile)
+  const MOBILE_LINE_GAP = 56; // px between popup bottom and pin top (footnote visible)
 
   let showTimer = 0;
   let hoveredHotspot = null;
@@ -2510,19 +2575,14 @@ function initGraphic3(root) {
     if (isMobile) {
       const popupW = shock.offsetWidth;
       const popupH = shock.offsetHeight;
-      const isRightmost = key === "case";
-      // Keep a clear gap above the pin top; rightmost may use media headroom above the scene
-      const lineGap = isRightmost ? 20 : MOBILE_LINE_GAP;
+      const mediaH = frame.clientHeight || sceneH;
+      const headroom = Math.max(0, mediaH - sceneH);
+      // Gap between popup bottom and pin top so the footnote line stays visible
+      const lineGap = MOBILE_LINE_GAP;
+      // All pins may rise into media headroom (and slightly into figcaption overlap)
+      const minTop = -(headroom + 24);
       let topPx = lineEndY - lineGap - popupH;
-
-      if (isRightmost) {
-        const mediaH = frame.clientHeight || sceneH;
-        const headroom = Math.max(0, mediaH - sceneH);
-        // Allow rising into the +100px area above the scene so the pin stays free
-        topPx = Math.max(-headroom + 8, lineEndY - lineGap - popupH);
-      } else {
-        topPx = Math.max(pad, Math.min(topPx, lineEndY - lineGap - 40));
-      }
+      topPx = Math.max(minTop, topPx);
 
       const idealLeft = pointX - popupW / 2;
       const minLeft = pad;
@@ -2685,7 +2745,7 @@ function initQuotes() {
       authorLines.forEach((el) => el.classList.add("anim-author-line"));
     }
 
-    whenInView(quote, async () => {
+    whenCopyInView(quote, async () => {
       if (!ANIM_ON) {
         quote.classList.add("is-anim-done", "is-in");
         return;
@@ -2716,7 +2776,7 @@ function initArticleTitle() {
   const h1 = document.querySelector(".article-head h1");
   if (!h1) return;
   armRiseText(h1);
-  whenInView(
+  whenCopyInView(
     h1,
     async () => {
       if (!ANIM_ON) {
@@ -2742,7 +2802,7 @@ function initCopyFade() {
     ),
   ];
   els.forEach((el) => {
-    whenInView(
+    whenCopyInView(
       el,
       () => {
         el.classList.add("is-shown");

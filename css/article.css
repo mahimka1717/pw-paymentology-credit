@@ -1812,16 +1812,20 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
 
   .graphic-3 > figcaption {
     padding: 28px 20px 0;
+    /* Below stage so pin popups paint over the subtitle */
+    z-index: 1;
   }
 
   .graphic-3-stage {
     margin-top: -130px;
+    z-index: 2;
   }
 
   .graphic-3-media {
     aspect-ratio: auto;
-    height: calc(100cqw * 730 / 1094 + 100px);
-    overflow: hidden;
+    /* Extra headroom so every pin popup can sit above its marker with a footnote gap */
+    height: calc(100cqw * 730 / 1094 + 160px);
+    overflow: visible;
   }
 
   /* Same aspect frame as desktop, pinned to the bottom */
@@ -1833,6 +1837,7 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     bottom: 0;
     width: 100%;
     height: calc(100cqw * 730 / 1094);
+    overflow: visible;
   }
 
   .graphic-3-photo {
