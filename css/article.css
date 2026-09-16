@@ -749,7 +749,7 @@ h1 {
 .join {
   width: 100%;
   min-height: 280px;
-  background: #12081f url("../public/img/footer-bg.png") center / cover no-repeat;
+  background: #12081f;
   color: #fff;
 }
 
