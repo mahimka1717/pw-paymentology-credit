@@ -57,7 +57,12 @@ function setAnnDotPulsing(el, on) {
 }
 
 /** Idle: pulse step groups in a loop. Selection: lock() specific els. */
-function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs = 1800 } = {}) {
+function createPulseTour({
+  getSteps,
+  applyPulse = setAnnDotPulsing,
+  intervalMs = 1800,
+  gapMs = 0,
+} = {}) {
   let timer = 0;
   let step = 0;
   let mode = "stop"; // stop | tour | lock
@@ -82,6 +87,30 @@ function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs =
     known.forEach((el) => applyPulse(el, false));
   };
 
+  const stopTimer = () => {
+    if (!timer) return;
+    window.clearTimeout(timer);
+    window.clearInterval(timer);
+    timer = 0;
+  };
+
+  const scheduleAfterPulse = () => {
+    if (mode !== "tour") return;
+    if (!gapMs) {
+      timer = window.setInterval(tick, intervalMs);
+      return;
+    }
+    // Hold pulse for intervalMs → clear → pause gapMs → next
+    timer = window.setTimeout(() => {
+      if (mode !== "tour") return;
+      clear();
+      timer = window.setTimeout(() => {
+        if (mode !== "tour") return;
+        tick();
+      }, gapMs);
+    }, intervalMs);
+  };
+
   const tick = () => {
     if (mode !== "tour") return;
     const steps = getSteps().filter((s) => s?.length);
@@ -92,12 +121,7 @@ function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs =
     if (step >= steps.length) step = 0;
     paint(steps[step]);
     step = (step + 1) % steps.length;
-  };
-
-  const stopTimer = () => {
-    if (!timer) return;
-    window.clearInterval(timer);
-    timer = 0;
+    if (gapMs) scheduleAfterPulse();
   };
 
   const startTour = () => {
@@ -105,7 +129,7 @@ function createPulseTour({ getSteps, applyPulse = setAnnDotPulsing, intervalMs =
     stopTimer();
     step = 0;
     tick();
-    timer = window.setInterval(tick, intervalMs);
+    if (!gapMs) timer = window.setInterval(tick, intervalMs);
   };
 
   const lock = (els) => {
@@ -184,71 +208,6 @@ function whenInView(el, onEnter, threshold = 0.12) {
   });
   window.setTimeout(checkNow, 100);
   window.setTimeout(checkNow, 400);
-}
-
-/** True when the whole element fits on screen (with subpixel tolerance). */
-function isFullyInView(el) {
-  const rect = el.getBoundingClientRect();
-  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-  const vw = window.innerWidth || document.documentElement.clientWidth || 0;
-  if (vh <= 0 || vw <= 0 || rect.width <= 0 || rect.height <= 0) return false;
-  const tol = 4;
-  // Fits in the viewport — require fully inside
-  if (rect.height <= vh + tol && rect.width <= vw + tol) {
-    return (
-      rect.top >= -tol &&
-      rect.bottom <= vh + tol &&
-      rect.left >= -tol &&
-      rect.right <= vw + tol
-    );
-  }
-  // Taller than the viewport — fire once the bottom edge is visible
-  return rect.bottom <= vh + tol && rect.bottom > 0 && rect.top < vh;
-}
-
-/** Like whenInView, but waits until the element is fully on screen. */
-function whenFullyInView(el, onEnter) {
-  if (!el) return;
-  if (!ANIM_ON) {
-    onEnter?.(el);
-    return;
-  }
-
-  let done = false;
-  const cleanup = () => {
-    window.removeEventListener("scroll", check, { passive: true });
-    window.removeEventListener("resize", check);
-    io.disconnect();
-  };
-  const run = () => {
-    if (done) return;
-    done = true;
-    cleanup();
-    onEnter?.(el);
-  };
-  const check = () => {
-    if (done) return;
-    if (isFullyInView(el)) run();
-  };
-
-  const io = new IntersectionObserver(() => check(), {
-    threshold: [0, 0.25, 0.5, 0.75, 0.9, 0.95, 1],
-    rootMargin: "0px",
-  });
-  io.observe(el);
-  window.addEventListener("scroll", check, { passive: true });
-  window.addEventListener("resize", check);
-  el.querySelectorAll("img").forEach((img) => {
-    if (!img.complete) img.addEventListener("load", check, { once: true });
-  });
-
-  requestAnimationFrame(() => {
-    check();
-    requestAnimationFrame(check);
-  });
-  window.setTimeout(check, 100);
-  window.setTimeout(check, 400);
-  window.setTimeout(check, 1200);
 }
 
 /** Split element text into word spans for rise-in animation. Keeps <br>. */
@@ -2532,6 +2491,17 @@ function initGraphic3(root) {
 
   let showTimer = 0;
 
+  // Left → right pulse order (own pin color + tip-anchored scale)
+  const pulseOrder = [...hotspots].sort(
+    (a, b) => Number(a.dataset.x) - Number(b.dataset.x)
+  );
+  const pulseTour = createPulseTour({
+    getSteps: () => pulseOrder.map((h) => [h]),
+    applyPulse: (el, on) => el.classList.toggle("is-pulsing", !!on),
+    intervalMs: 1600,
+    gapMs: 700,
+  });
+
   const placeAt = (hotspot) => {
     const scene = root.querySelector(".graphic-3-scene");
     const frame = root.querySelector(".graphic-3-media") || root;
@@ -2635,6 +2605,7 @@ function initGraphic3(root) {
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
+    pulseTour.stop();
     const restart = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     if (restart) {
@@ -2657,6 +2628,7 @@ function initGraphic3(root) {
     clearTimeout(showTimer);
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
+    if (root.classList.contains("is-anim-done")) pulseTour.startTour();
   };
 
   hotspots.forEach((hotspot) => {
@@ -2687,7 +2659,7 @@ function initGraphic3(root) {
   armRiseLines(g3Sub);
   if (ANIM_ON && maya) maya.classList.add("anim-rise-block");
 
-  // Title / subtitle / Maya: same as other graphics (half visible)
+  // Title / subtitle / Maya: half visible
   whenInView(root, async () => {
     if (!ANIM_ON) return;
     await playRiseText(g3Title, { stagger: 42 });
@@ -2698,12 +2670,13 @@ function initGraphic3(root) {
     }
   }, 0.5);
 
-  // Pins drop once the whole infographic is on screen
-  whenFullyInView(root, async () => {
+  // Pins drop at ~2/3 visible, then pulse in sequence
+  whenInView(root, async () => {
     if (!ANIM_ON) {
       root.classList.add("is-anim-done");
       hotspots.forEach(showEl);
       if (maya) maya.classList.add("is-shown");
+      pulseTour.startTour();
       return;
     }
     const dropOrder = shuffle(hotspots);
@@ -2713,7 +2686,8 @@ function initGraphic3(root) {
     }
     await wait(900);
     root.classList.add("is-anim-done");
-  });
+    pulseTour.startTour();
+  }, 2 / 3);
 }
 
 function initQuotes() {

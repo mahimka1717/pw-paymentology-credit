@@ -666,13 +666,15 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   box-shadow: none;
   border-radius: 0;
   z-index: 6;
-  /* Tip sits on the data point */
+  /* Tip sits on the data point; scale pulses from the tip */
   transform: translate(-50%, -100%) translateY(var(--g3-shift));
+  transform-origin: 50% 100%;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
+  will-change: transform, filter;
 }
 
 .hotspot-pin {
@@ -684,7 +686,7 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
 }
 
 .hotspot.is-pulsing {
-  animation: none;
+  animation: pin-color-pulse 1.6s ease-in-out infinite;
 }
 
 .hotspot::before {
@@ -697,8 +699,8 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   content: none;
 }
 
-/* Pin drop-in (graphic 3): start above tip, bounce to settle */
-html:not(.no-animate) .graphic-3 .hotspot:not(.is-shown) {
+/* Pin drop-in (graphic 3): start above tip, bounce to settle — once only */
+html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot:not(.is-shown) {
   opacity: 0;
   transform: translate(-50%, -100%) translateY(calc(var(--g3-shift) - 72px));
   transition: none;
@@ -706,7 +708,7 @@ html:not(.no-animate) .graphic-3 .hotspot:not(.is-shown) {
   animation: none !important;
 }
 
-html:not(.no-animate) .graphic-3 .hotspot.is-shown {
+html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot.is-shown {
   opacity: 1;
   pointer-events: auto;
   transition: none;
@@ -719,6 +721,12 @@ html.no-animate .graphic-3 .hotspot,
   transform: translate(-50%, -100%) translateY(var(--g3-shift));
   animation: none;
   pointer-events: auto;
+  filter: none;
+}
+
+/* Pulse only — never restarts pin-drop */
+.graphic-3.is-anim-done .hotspot.is-pulsing {
+  animation: pin-color-pulse 1.6s ease-in-out infinite;
 }
 
 /* Fall → hit → one bounce → settle (ball physics) */
@@ -740,6 +748,19 @@ html.no-animate .graphic-3 .hotspot,
   100% {
     opacity: 1;
     transform: translate(-50%, -100%) translateY(var(--g3-shift));
+  }
+}
+
+/* Brighten + grow from tip; tip stays planted */
+@keyframes pin-color-pulse {
+  0%,
+  100% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.18);
+    filter: brightness(1.45) saturate(1.35);
   }
 }
 
@@ -1846,11 +1867,11 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     transform: translate(-50%, -100%) translateY(var(--g3-shift));
   }
 
-  html:not(.no-animate) .graphic-3 .hotspot:not(.is-shown) {
+  html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot:not(.is-shown) {
     transform: translate(-50%, -100%) translateY(calc(var(--g3-shift) - 48px));
   }
 
-  html:not(.no-animate) .graphic-3 .hotspot.is-shown {
+  html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot.is-shown {
     animation: pin-drop 0.85s forwards;
   }
 
