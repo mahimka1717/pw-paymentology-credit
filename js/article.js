@@ -43,22 +43,12 @@ function makeAnnDot(layer, svgW, svgH, x, y, color) {
   const el = document.createElement("div");
   el.className = "ann-dot";
   el.style.setProperty("--ann-color", color);
-  const rgb = hexToRgbChannels(color);
-  if (rgb) el.style.setProperty("--ann-pulse-rgb", rgb);
   el.style.left = `${(x / svgW) * 100}%`;
   el.style.top = `${(y / svgH) * 100}%`;
   el.dataset.x = String(x);
   el.dataset.y = String(y);
   layer.appendChild(el);
   return el;
-}
-
-/** "#rrggbb" → "r, g, b" for rgba(var(--x), a) pulses */
-function hexToRgbChannels(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
 function setAnnDotPulsing(el, on) {
@@ -194,6 +184,71 @@ function whenInView(el, onEnter, threshold = 0.12) {
   });
   window.setTimeout(checkNow, 100);
   window.setTimeout(checkNow, 400);
+}
+
+/** True when the whole element fits on screen (with subpixel tolerance). */
+function isFullyInView(el) {
+  const rect = el.getBoundingClientRect();
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+  if (vh <= 0 || vw <= 0 || rect.width <= 0 || rect.height <= 0) return false;
+  const tol = 4;
+  // Fits in the viewport — require fully inside
+  if (rect.height <= vh + tol && rect.width <= vw + tol) {
+    return (
+      rect.top >= -tol &&
+      rect.bottom <= vh + tol &&
+      rect.left >= -tol &&
+      rect.right <= vw + tol
+    );
+  }
+  // Taller than the viewport — fire once the bottom edge is visible
+  return rect.bottom <= vh + tol && rect.bottom > 0 && rect.top < vh;
+}
+
+/** Like whenInView, but waits until the element is fully on screen. */
+function whenFullyInView(el, onEnter) {
+  if (!el) return;
+  if (!ANIM_ON) {
+    onEnter?.(el);
+    return;
+  }
+
+  let done = false;
+  const cleanup = () => {
+    window.removeEventListener("scroll", check, { passive: true });
+    window.removeEventListener("resize", check);
+    io.disconnect();
+  };
+  const run = () => {
+    if (done) return;
+    done = true;
+    cleanup();
+    onEnter?.(el);
+  };
+  const check = () => {
+    if (done) return;
+    if (isFullyInView(el)) run();
+  };
+
+  const io = new IntersectionObserver(() => check(), {
+    threshold: [0, 0.25, 0.5, 0.75, 0.9, 0.95, 1],
+    rootMargin: "0px",
+  });
+  io.observe(el);
+  window.addEventListener("scroll", check, { passive: true });
+  window.addEventListener("resize", check);
+  el.querySelectorAll("img").forEach((img) => {
+    if (!img.complete) img.addEventListener("load", check, { once: true });
+  });
+
+  requestAnimationFrame(() => {
+    check();
+    requestAnimationFrame(check);
+  });
+  window.setTimeout(check, 100);
+  window.setTimeout(check, 400);
+  window.setTimeout(check, 1200);
 }
 
 /** Split element text into word spans for rise-in animation. Keeps <br>. */
@@ -2475,13 +2530,6 @@ function initGraphic3(root) {
   const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top
   const MOBILE_LINE_GAP = 48; // px between popup bottom and point (longer footnote on mobile)
 
-  const shiftPct = () => {
-    const scene = root.querySelector(".graphic-3-scene");
-    const shiftPx = parseFloat(getComputedStyle(root).getPropertyValue("--g3-shift")) || 0;
-    const h = scene?.clientHeight || 1;
-    return (shiftPx / h) * 100;
-  };
-
   let showTimer = 0;
 
   const placeAt = (hotspot) => {
@@ -2495,26 +2543,41 @@ function initGraphic3(root) {
     bodyEl.textContent = copy.body;
 
     const isMobile = window.matchMedia("(max-width: 860px)").matches;
-    const x = Number(hotspot.dataset.x);
-    const y = Number(hotspot.dataset.y) + shiftPct();
     const sceneW = scene.clientWidth || 1;
     const sceneH = scene.clientHeight || 1;
     const pad =
       parseFloat(getComputedStyle(root).getPropertyValue("--g3-pad")) || 16;
-    const pointX = (x / 100) * sceneW;
-    const pointYPx = (y / 100) * sceneH;
+
+    // Tip / top from rendered pin (includes CSS offsets + g3-shift)
+    const sceneRect = scene.getBoundingClientRect();
+    const pinRect = hotspot.getBoundingClientRect();
+    const pointX = pinRect.left + pinRect.width / 2 - sceneRect.left;
+    const tipY = pinRect.top + pinRect.height - sceneRect.top;
+    const lineEndY = Math.max(0, pinRect.top - sceneRect.top) + 1;
+    const xPct = (pointX / sceneW) * 100;
+    const yPct = (tipY / sceneH) * 100;
 
     shock.style.setProperty("--shock-shift-x", "0px");
-    shock.style.left = `${x}%`;
+    shock.style.left = `${xPct}%`;
     shock.hidden = false;
     void shock.offsetWidth;
 
     if (isMobile) {
       const popupW = shock.offsetWidth;
       const popupH = shock.offsetHeight;
-      // Popup above the point with a short gap (shorter footnote than desktop)
-      let topPx = pointYPx - MOBILE_LINE_GAP - popupH;
-      topPx = Math.max(pad, Math.min(topPx, pointYPx - MOBILE_LINE_GAP - 40));
+      const isRightmost = key === "case";
+      // Keep a clear gap above the pin top; rightmost may use media headroom above the scene
+      const lineGap = isRightmost ? 20 : MOBILE_LINE_GAP;
+      let topPx = lineEndY - lineGap - popupH;
+
+      if (isRightmost) {
+        const mediaH = frame.clientHeight || sceneH;
+        const headroom = Math.max(0, mediaH - sceneH);
+        // Allow rising into the +100px area above the scene so the pin stays free
+        topPx = Math.max(-headroom + 8, lineEndY - lineGap - popupH);
+      } else {
+        topPx = Math.max(pad, Math.min(topPx, lineEndY - lineGap - 40));
+      }
 
       const idealLeft = pointX - popupW / 2;
       const minLeft = pad;
@@ -2544,13 +2607,13 @@ function initGraphic3(root) {
       line.style.left = `${(pointX / sceneW) * 100}%`;
 
       const popupBottomPx = topPx + popupH;
-      const lineH = Math.max(0, pointYPx - popupBottomPx);
+      const lineH = Math.max(0, lineEndY - popupBottomPx);
       line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
       line.style.height = `${(lineH / sceneH) * 100}%`;
     } else {
-      const shockTop = Math.max(2, y - POPUP_OFFSET_PCT);
+      const shockTop = Math.max(2, yPct - POPUP_OFFSET_PCT);
       shock.style.top = `${shockTop}%`;
-      line.style.left = `${x}%`;
+      line.style.left = `${xPct}%`;
 
       // Keep centered popup inside the scene (rightmost point at ~94%)
       const popupW = shock.offsetWidth;
@@ -2564,7 +2627,7 @@ function initGraphic3(root) {
       shock.style.setProperty("--shock-shift-x", `${shiftX}px`);
 
       const popupBottomPx = (shockTop / 100) * sceneH + shock.offsetHeight;
-      const lineH = Math.max(0, pointYPx - popupBottomPx);
+      const lineH = Math.max(0, lineEndY - popupBottomPx);
       line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
       line.style.height = `${(lineH / sceneH) * 100}%`;
     }
@@ -2572,7 +2635,6 @@ function initGraphic3(root) {
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
-    pulseTour.lock([hotspot]);
     const restart = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     if (restart) {
@@ -2595,7 +2657,6 @@ function initGraphic3(root) {
     clearTimeout(showTimer);
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
-    pulseTour.startTour();
   };
 
   hotspots.forEach((hotspot) => {
@@ -2608,15 +2669,14 @@ function initGraphic3(root) {
     hide,
   });
 
-  const rightmost = hotspots.reduce((best, h) =>
-    Number(h.dataset.x) > Number(best.dataset.x) ? h : best
-  );
-  const pulseOrder = [rightmost, ...hotspots.filter((h) => h !== rightmost)];
-  const pulseTour = createPulseTour({
-    getSteps: () => pulseOrder.map((h) => [h]),
-    applyPulse: (el, on) => el.classList.toggle("is-pulsing", !!on),
-    intervalMs: 1800,
-  });
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
 
   root.classList.add("anim-chart");
   const g3Title = root.querySelector("figcaption h3") || root.querySelector("h3");
@@ -2627,29 +2687,33 @@ function initGraphic3(root) {
   armRiseLines(g3Sub);
   if (ANIM_ON && maya) maya.classList.add("anim-rise-block");
 
+  // Title / subtitle / Maya: same as other graphics (half visible)
   whenInView(root, async () => {
-    if (!ANIM_ON) {
-      root.classList.add("is-anim-done");
-      hotspots.forEach(showEl);
-      pulseTour.startTour();
-      return;
-    }
+    if (!ANIM_ON) return;
     await playRiseText(g3Title, { stagger: 42 });
     if (g3Sub) await playRiseLines(g3Sub, { stagger: 140, startDelay: 80 });
     if (maya) {
       await wait(120);
       maya.classList.add("is-shown");
-      await wait(500);
     }
-    const appearOrder = pulseOrder;
-    for (let i = 0; i < appearOrder.length; i++) {
-      showEl(appearOrder[i]);
-      if (i < appearOrder.length - 1) await wait(70);
-    }
-    await wait(200);
-    root.classList.add("is-anim-done");
-    pulseTour.startTour();
   }, 0.5);
+
+  // Pins drop once the whole infographic is on screen
+  whenFullyInView(root, async () => {
+    if (!ANIM_ON) {
+      root.classList.add("is-anim-done");
+      hotspots.forEach(showEl);
+      if (maya) maya.classList.add("is-shown");
+      return;
+    }
+    const dropOrder = shuffle(hotspots);
+    for (let i = 0; i < dropOrder.length; i++) {
+      showEl(dropOrder[i]);
+      if (i < dropOrder.length - 1) await wait(90 + Math.floor(Math.random() * 70));
+    }
+    await wait(900);
+    root.classList.add("is-anim-done");
+  });
 }
 
 function initQuotes() {
