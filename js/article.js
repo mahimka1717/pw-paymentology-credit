@@ -1535,21 +1535,12 @@ function drawChart2(root) {
 
   svg.append(applyG, acceptG);
 
-  // Scrubber handle sits above series; pulse ring so the drag marker stays “active”
+  // Scrubber handle sits above series
   const scrubHandle = svgEl("g", {
     class: "anim-ann chart-scrubber-handle",
     "data-anim-x": scrubX,
     transform: `translate(${scrubX}, 0)`,
   });
-  scrubHandle.appendChild(
-    svgEl("circle", {
-      class: "scrub-handle-pulse",
-      cx: 0,
-      cy: plotT,
-      r: 7,
-      fill: axisX,
-    })
-  );
   scrubHandle.appendChild(
     svgEl("circle", {
       cx: 0,
@@ -1651,11 +1642,13 @@ function drawChart2(root) {
   };
 
   let scrubPosX = scrubX;
+  let scrubPulse = null;
 
   const setScrubEase = (on) => {
     scrubber.classList.toggle("scrub-ease", on);
     scrubHandle.classList.toggle("scrub-ease", on);
     callout.classList.toggle("scrub-ease", on);
+    scrubPulse?.classList.toggle("scrub-ease", on);
   };
 
   const moveScrubberTo = (x, { animate = false } = {}) => {
@@ -1666,6 +1659,7 @@ function drawChart2(root) {
     scrubHandle.setAttribute("transform", t);
     scrubber.setAttribute("data-anim-x", x);
     scrubHandle.setAttribute("data-anim-x", x);
+    if (scrubPulse) scrubPulse.style.left = `${(x / w) * 100}%`;
   };
 
   const measureCalloutW = () => {
@@ -1690,26 +1684,10 @@ function drawChart2(root) {
     callout.style.left = `${(calloutPxFor(x) / w) * 100}%`;
   };
 
-  let pulseTour = null;
   let activeQuarter = -1;
   let calloutVisible = false;
   let popupHover = 0;
   let dragging = false;
-
-  const pulseSelectedOrTour = () => {
-    if (!pulseTour) return;
-    if (activeQuarter >= 0) {
-      const item = chart2AnnDots.find((d) => d.i === activeQuarter);
-      const els = item
-        ? item.pulseDots.filter(({ key }) => seriesOn[key]).map(({ el }) => el)
-        : [];
-      if (els.length) pulseTour.lock(els);
-      else pulseTour.stop();
-    } else {
-      pulseTour.stop();
-    }
-    syncPctLabels();
-  };
 
   const syncPctLabels = () => {
     chart2AnnDots.forEach(({ i, pulseDots }) => {
@@ -1747,6 +1725,13 @@ function drawChart2(root) {
   const seriesOn = { accept: true, apply: true };
   const chart2AnnDots = [];
   const annLayer = makeAnnDotLayer(root, w, h);
+
+  // Same green double-ring box-shadow pulse as .ann-dot.is-pulsing; always on
+  scrubPulse = document.createElement("div");
+  scrubPulse.className = "scrub-handle-pulse anim-ann";
+  scrubPulse.style.left = `${(scrubX / w) * 100}%`;
+  scrubPulse.style.top = `${(plotT / h) * 100}%`;
+  annLayer.appendChild(scrubPulse);
 
   activeIdx.forEach((i) => {
     const pulseDots = [];
@@ -1804,16 +1789,6 @@ function drawChart2(root) {
       });
     }
     chart2AnnDots.push({ i, pulseDots });
-  });
-
-  pulseTour = createPulseTour({
-    // Same quarter (same x) pulses together
-    getSteps: () =>
-      chart2AnnDots
-        .map(({ pulseDots }) =>
-          pulseDots.filter(({ key }) => seriesOn[key]).map(({ el }) => el)
-        )
-        .filter((els) => els.length),
   });
 
   const popupIdx = Object.keys(calloutCopy)
@@ -1874,23 +1849,23 @@ function drawChart2(root) {
     moveScrubberTo(x, { animate });
     if (popup && quarterHasActive(i) && calloutCopy[i]) showPopup(i, x);
     else if (!popup && popupHover === 0) hidePopup();
-    pulseSelectedOrTour();
+    syncPctLabels();
   };
 
   const scrubDragTo = (x) => {
     const clamped = clampScrubX(x);
     moveScrubberTo(clamped, { animate: false });
     const i = nearestQuarter(clamped);
-    // Values + pulse while inside an active quarter; popup only while dragging / hover
+    // Values while inside an active quarter; popup only while dragging / hover
     if (calloutCopy[i] && quarterHasActive(i)) {
       activeQuarter = i;
       currentScrub = i;
       if (dragging) showPopup(i, clamped);
-      pulseSelectedOrTour();
+      syncPctLabels();
     } else {
       activeQuarter = -1;
       hidePopup();
-      pulseSelectedOrTour();
+      syncPctLabels();
     }
   };
 
@@ -2306,7 +2281,7 @@ function drawChart2(root) {
     if (wrap.classList.contains("is-anim-done") || !ANIM_ON) {
       applyScrubberAt(committedScrub);
     }
-    pulseSelectedOrTour();
+    syncPctLabels();
   };
 
   const toggleSeries = (key) => setSeriesVisible(key, !seriesOn[key]);
@@ -2369,10 +2344,6 @@ function drawChart2(root) {
           .map(({ el }) => ({ el, fraction: fracsApply[i] }))
       ),
     ];
-    let firstPulseStarted = false;
-    const firstPulseDots = chart2AnnDots.find((d) => d.i === scrubIdx)?.pulseDots || [];
-    const firstActiveEls = firstPulseDots.map(({ el }) => el);
-    const firstActiveSet = new Set(firstActiveEls);
     const scrubAnn = new Set([scrubber, scrubHandle]);
     await playChartSequence({
       wrap,
@@ -2385,21 +2356,12 @@ function drawChart2(root) {
       dots: [],
       ann: [...svg.querySelectorAll(".anim-ann")].filter((el) => !scrubAnn.has(el)),
       lineGap: 1000,
-      onLineDotShow: ({ el }) => {
-        if (firstPulseStarted || !firstActiveSet.has(el)) return;
-        const ready = firstPulseDots
-          .filter(({ key }) => seriesOn[key])
-          .map(({ el: dot }) => dot);
-        if (!ready.length || !ready.every((dot) => dot.classList.contains("is-shown"))) return;
-        firstPulseStarted = true;
-        pulseTour.lock(ready);
-      },
     });
-    // Scrubber line + handle after full draw; values/pulse on, popup only on hover
+    // Scrubber line + handle after full draw; values on, popup only on hover
     showEl(scrubber);
     showEl(scrubHandle);
+    showEl(scrubPulse);
     applyScrubberAt(scrubIdx, { popup: false });
-    pulseSelectedOrTour();
   }, 0.5);
 }
 
@@ -2490,14 +2452,23 @@ function initGraphic3(root) {
   const MOBILE_LINE_GAP = 48; // px between popup bottom and point (longer footnote on mobile)
 
   let showTimer = 0;
+  let hoveredHotspot = null;
 
   // Left → right pulse order (own pin color + tip-anchored scale)
   const pulseOrder = [...hotspots].sort(
     (a, b) => Number(a.dataset.x) - Number(b.dataset.x)
   );
   const pulseTour = createPulseTour({
-    getSteps: () => pulseOrder.map((h) => [h]),
-    applyPulse: (el, on) => el.classList.toggle("is-pulsing", !!on),
+    // Skip the hovered pin — tour keeps running for the rest
+    getSteps: () =>
+      pulseOrder.filter((h) => h !== hoveredHotspot).map((h) => [h]),
+    applyPulse: (el, on) => {
+      if (el === hoveredHotspot) {
+        el.classList.remove("is-pulsing");
+        return;
+      }
+      el.classList.toggle("is-pulsing", !!on);
+    },
     intervalMs: 1600,
     gapMs: 700,
   });
@@ -2605,7 +2576,11 @@ function initGraphic3(root) {
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
-    pulseTour.stop();
+    hoveredHotspot = hotspot;
+    hotspots.forEach((h) => {
+      h.classList.toggle("is-hover", h === hotspot);
+      if (h === hotspot) h.classList.remove("is-pulsing");
+    });
     const restart = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     if (restart) {
@@ -2626,9 +2601,10 @@ function initGraphic3(root) {
 
   const hide = () => {
     clearTimeout(showTimer);
+    hoveredHotspot = null;
+    hotspots.forEach((h) => h.classList.remove("is-hover"));
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
-    if (root.classList.contains("is-anim-done")) pulseTour.startTour();
   };
 
   hotspots.forEach((hotspot) => {

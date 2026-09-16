@@ -674,7 +674,7 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
-  will-change: transform, filter;
+  will-change: transform;
 }
 
 .hotspot-pin {
@@ -721,12 +721,22 @@ html.no-animate .graphic-3 .hotspot,
   transform: translate(-50%, -100%) translateY(var(--g3-shift));
   animation: none;
   pointer-events: auto;
-  filter: none;
+}
+
+.graphic-3.is-anim-done .hotspot:not(.is-pulsing) {
+  transition: transform 0.28s ease;
 }
 
 /* Pulse only — never restarts pin-drop */
 .graphic-3.is-anim-done .hotspot.is-pulsing {
   animation: pin-color-pulse 1.6s ease-in-out infinite;
+}
+
+/* Hover: same peak scale as pulse; tour skips this pin while hovered */
+.graphic-3.is-anim-done .hotspot.is-hover {
+  animation: none !important;
+  transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.18);
+  z-index: 7;
 }
 
 /* Fall → hit → one bounce → settle (ball physics) */
@@ -751,16 +761,14 @@ html.no-animate .graphic-3 .hotspot,
   }
 }
 
-/* Brighten + grow from tip; tip stays planted */
+/* Grow from tip; tip stays planted — size only */
 @keyframes pin-color-pulse {
   0%,
   100% {
     transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
-    filter: brightness(1) saturate(1);
   }
   50% {
     transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.18);
-    filter: brightness(1.45) saturate(1.35);
   }
 }
 
@@ -1161,6 +1169,11 @@ html.no-animate .anim-dot,
   animation: hotspot-pulse 1.8s ease-out infinite;
 }
 
+/* Chart 2: no pulse on series dots — pulse lives on the scrub handle */
+#chart-2 .ann-dot.is-pulsing {
+  animation: none;
+}
+
 .ann-dot.is-off {
   opacity: 0 !important;
   visibility: hidden;
@@ -1324,31 +1337,30 @@ html.no-animate .chart-pct-label.is-active {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Same hotspot-pulse as .ann-dot (solid green double halo, no hollow rings) */
 .scrub-handle-pulse {
-  transform-box: fill-box;
-  transform-origin: center;
-  pointer-events: none;
-  animation: scrub-handle-pulse 2.4s ease-out infinite;
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  pointer-events: none !important;
+  z-index: 0;
+  --ann-pulse-rgb: 170, 255, 110; /* #aaff6e */
+  animation: hotspot-pulse 1.8s ease-out infinite;
 }
 
-@keyframes scrub-handle-pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  70% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
+.scrub-handle-pulse.scrub-ease {
+  transition: left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not(.no-animate) .scrub-handle-pulse.anim-ann:not(.is-shown) {
+  animation: none !important;
 }
 
 html.no-animate .scrub-handle-pulse {
   animation: none;
-  opacity: 0;
 }
 
 .scrub-rail {
