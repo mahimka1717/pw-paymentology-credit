@@ -1726,12 +1726,15 @@ function drawChart2(root) {
   const chart2AnnDots = [];
   const annLayer = makeAnnDotLayer(root, w, h);
 
-  // Same green double-ring box-shadow pulse as .ann-dot.is-pulsing; always on
+  // Pulse layer under the SVG so rings sit beneath the white handle stroke
+  const scrubPulseLayer = document.createElement("div");
+  scrubPulseLayer.className = "scrub-pulse-layer";
+  scrubPulseLayer.style.aspectRatio = `${w} / ${h}`;
   scrubPulse = document.createElement("div");
   scrubPulse.className = "scrub-handle-pulse anim-ann";
   scrubPulse.style.left = `${(scrubX / w) * 100}%`;
   scrubPulse.style.top = `${(plotT / h) * 100}%`;
-  annLayer.appendChild(scrubPulse);
+  scrubPulseLayer.appendChild(scrubPulse);
 
   activeIdx.forEach((i) => {
     const pulseDots = [];
@@ -2255,6 +2258,7 @@ function drawChart2(root) {
   }
 
   svg.append(legendAccept, legendApply);
+  root.appendChild(scrubPulseLayer);
   root.appendChild(svg);
   root.appendChild(annLayer);
   root.appendChild(calloutLayer);

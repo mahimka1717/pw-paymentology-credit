@@ -1040,6 +1040,21 @@ html.no-animate .anim-dot,
   z-index: 5;
 }
 
+/* Under SVG handle so pulse rings don't cover the white outline */
+.scrub-pulse-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#chart-2 svg {
+  position: relative;
+  z-index: 2;
+}
+
 .chart2-callout-layer {
   position: absolute;
   left: 0;
