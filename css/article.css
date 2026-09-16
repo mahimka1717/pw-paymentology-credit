@@ -656,7 +656,7 @@ h1 {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
-  --ann-pulse-rgb: 129, 56, 255;
+  --ann-pulse-rgb: 255, 255, 255;
 }
 
 .hotspot.is-pulsing {
