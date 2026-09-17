@@ -2674,6 +2674,16 @@ function initGraphic3(root) {
   hotspots.forEach((hotspot) => {
     hotspot.setAttribute("tabindex", "0");
     hotspot.setAttribute("role", "button");
+    if (!hotspot.getAttribute("aria-label")) {
+      const copy = popups[hotspot.dataset.key] || defaultCopy;
+      const title = String(copy.titleHtml || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const label = [title, copy.subtitle].filter(Boolean).join(": ");
+      if (label) hotspot.setAttribute("aria-label", label);
+    }
   });
 
   bindHoverOrTap(hotspots, {
