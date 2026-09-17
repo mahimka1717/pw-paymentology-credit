@@ -1803,57 +1803,65 @@ function drawChart2(root) {
 
   activeIdx.forEach((i) => {
     const pulseDots = [];
-    if (labeledA[i]) {
-      const [x, y] = acceptPts[i];
+    // Position via <g transform>; scale the inner group from 0,0 so Safari
+    // doesn't use the SVG viewport origin (labels flying in from a corner).
+    const makePctLabel = (parent, lx, ly, text, fill, anchor = "middle") => {
+      const wrap = svgEl("g", { transform: `translate(${lx}, ${ly})` });
+      const label = svgEl("g", { class: "chart-pct-label" });
       const t = svgEl("text", {
-        class: "chart-pct-label",
-        // 3rd purple label (66.4%): nudge right on mobile
-        x: isMobile && i === 3 ? x + 10 : x,
-        y: y - (isMobile ? 14 : 18),
-        fill: PURPLE,
+        x: 0,
+        y: 0,
+        fill,
         "font-size": fsPct,
         "font-weight": 900,
         "font-family": '"PP Monument Extended", sans-serif',
-        "text-anchor": "middle",
+        "text-anchor": anchor,
         style: `line-height: ${fsPct}px`,
         ...(isMobile
           ? { stroke: "#fff", "stroke-width": 1, "paint-order": "stroke fill" }
           : {}),
       });
-      t.textContent = labeledA[i];
-      acceptG.appendChild(t);
+      t.textContent = text;
+      label.appendChild(t);
+      wrap.appendChild(label);
+      parent.appendChild(wrap);
+      return label;
+    };
+
+    if (labeledA[i]) {
+      const [x, y] = acceptPts[i];
+      const label = makePctLabel(
+        acceptG,
+        isMobile && i === 3 ? x + 10 : x,
+        y - (isMobile ? 14 : 18),
+        labeledA[i],
+        PURPLE,
+        "middle"
+      );
       pulseDots.push({
         key: "accept",
         el: makeAnnDot(annLayer, w, h, x, y, PURPLE),
         x,
         y,
-        label: t,
+        label,
       });
     }
     if (labeledB[i]) {
       const [x, y] = applyPts[i];
-      const t = svgEl("text", {
-        class: "chart-pct-label",
-        x: i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
-        y: i === 2 ? y + 7 : y + (isMobile ? 26 : 32),
-        fill: PINK,
-        "font-size": fsPct,
-        "font-weight": 900,
-        "font-family": '"PP Monument Extended", sans-serif',
-        "text-anchor": i === 2 ? "end" : "middle",
-        style: `line-height: ${fsPct}px`,
-        ...(isMobile
-          ? { stroke: "#fff", "stroke-width": 1, "paint-order": "stroke fill" }
-          : {}),
-      });
-      t.textContent = labeledB[i];
-      applyG.appendChild(t);
+      const label = makePctLabel(
+        applyG,
+        i === 2 ? x - (isMobile ? 10 : 14) : i === 9 ? x + (isMobile ? 14 : 19) : i === 11 ? x + (isMobile ? 16 : 23) : x,
+        i === 2 ? y + 7 : y + (isMobile ? 26 : 32),
+        labeledB[i],
+        PINK,
+        i === 2 ? "end" : "middle"
+      );
       pulseDots.push({
         key: "apply",
         el: makeAnnDot(annLayer, w, h, x, y, PINK),
         x,
         y,
-        label: t,
+        label,
       });
     }
     chart2AnnDots.push({ i, pulseDots });
@@ -2786,17 +2794,16 @@ function initArticleTitle() {
   const h1 = document.querySelector(".article-head h1");
   if (!h1) return;
   armRiseText(h1);
-  whenCopyInView(
-    h1,
-    async () => {
-      if (!ANIM_ON) {
-        prepareRiseText(h1).forEach(showEl);
-        return;
-      }
-      await playRiseText(h1, { stagger: 42 });
-    },
-    0.5
-  );
+  const play = async () => {
+    if (!ANIM_ON) {
+      prepareRiseText(h1).forEach(showEl);
+      return;
+    }
+    await playRiseText(h1, { stagger: 42 });
+  };
+  // Mobile: animate as soon as the page loads (ignore viewport threshold)
+  if (isMobileView()) play();
+  else whenInView(h1, play, 0.5);
 }
 
 initArticleTitle();
