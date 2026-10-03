@@ -2507,16 +2507,27 @@ function initGraphic3(root) {
       titleHtml: "Credit<br />history",
       subtitle: "Good credit score",
       body: "Her credit history remains strong despite variable income.",
+      // Line meets popup at 3/4 → shift left of pin
+      anchorX: 0.75,
     },
     card: {
       titleHtml: "Income",
       subtitle: "€6,500 > €2,000 > €4,000",
       body: "Income changes as projects start and end.",
+      // Desktop only: footnote left of pin, popup to the left
+      desktopSide: "left",
     },
     bar: {
       titleHtml: "Economic<br />shock",
       subtitle: "Freelance demand falls",
       body: "A downturn reduces her income further.",
+      // Line meets popup at 1/4 → shift right of pin
+      anchorX: 0.25,
+    },
+    keys: {
+      titleHtml: "Spending",
+      subtitle: "Essential costs continue",
+      body: "Rent, utilities and everyday essentials still need to be paid when income dips.",
     },
     case: {
       titleHtml: "Credit<br />access",
@@ -2526,10 +2537,15 @@ function initGraphic3(root) {
   };
 
   const POPUP_OFFSET_PCT = 41.17; // desktop: distance from point to popup top
-  const MOBILE_LINE_GAP = 56; // px between popup bottom and pin top (footnote visible)
+  const MOBILE_LINE_GAP = 28; // px between popup bottom and pin top (half of prior 56)
+  const SIDE_LINE_LEN = 56; // desktop horizontal footnote length
 
   let showTimer = 0;
+  let lineTimer = 0;
+  let hideTimer = 0;
   let hoveredHotspot = null;
+  const MARKER_SCALE_MS = 280; // matches .hotspot hover transition 0.28s
+  const LINE_HIDE_MS = 400; // matches .shock-line transition 0.4s
 
   // Left → right pulse order (own pin color + tip-anchored scale)
   const pulseOrder = [...hotspots].sort(
@@ -2561,17 +2577,20 @@ function initGraphic3(root) {
     bodyEl.textContent = copy.body;
 
     const isMobile = window.matchMedia("(max-width: 860px)").matches;
-    const sceneW = scene.clientWidth || 1;
-    const sceneH = scene.clientHeight || 1;
     const pad =
       parseFloat(getComputedStyle(root).getPropertyValue("--g3-pad")) || 16;
 
-    // Tip / top from rendered pin (includes CSS offsets + g3-shift)
+    // Tip stays fixed under scale (origin 50% 100%). Don't force transition:none —
+    // that snaps hover scale. Use layout height × final hover scale instead.
+    const HOVER_SCALE = 1.18;
     const sceneRect = scene.getBoundingClientRect();
     const pinRect = hotspot.getBoundingClientRect();
+    const sceneW = sceneRect.width || 1;
+    const sceneH = sceneRect.height || 1;
     const pointX = pinRect.left + pinRect.width / 2 - sceneRect.left;
-    const tipY = pinRect.top + pinRect.height - sceneRect.top;
-    const lineEndY = Math.max(0, pinRect.top - sceneRect.top) + 1;
+    const tipY = pinRect.bottom - sceneRect.top;
+    const scale = hotspot.classList.contains("is-hover") ? HOVER_SCALE : 1;
+    const lineEndY = Math.max(0, tipY - hotspot.offsetHeight * scale);
     const xPct = (pointX / sceneW) * 100;
     const yPct = (tipY / sceneH) * 100;
 
@@ -2580,24 +2599,36 @@ function initGraphic3(root) {
     shock.hidden = false;
     void shock.offsetWidth;
 
+    const placeLineVertical = (popupBottomPx) => {
+      line.classList.remove("is-horizontal");
+      const lineH = Math.max(0, lineEndY - popupBottomPx);
+      line.style.left = `${pointX}px`;
+      line.style.top = `${popupBottomPx}px`;
+      line.style.width = "";
+      line.style.height = `${lineH}px`;
+    };
+
+    // 0 = left edge, 0.5 = center, 1 = right — where the footnote meets the popup
+    const anchorX = Number.isFinite(copy.anchorX) ? copy.anchorX : 0.5;
+    const desktopSide = !isMobile && copy.desktopSide === "left";
+
     if (isMobile) {
       const popupW = shock.offsetWidth;
       const popupH = shock.offsetHeight;
-      const mediaH = frame.clientHeight || sceneH;
+      const mediaH = frame.getBoundingClientRect().height || sceneH;
       const headroom = Math.max(0, mediaH - sceneH);
       // Gap between popup bottom and pin top so the footnote line stays visible
       const lineGap = MOBILE_LINE_GAP;
-      // All pins may rise into media headroom (and slightly into figcaption overlap)
-      const minTop = -(headroom + 24);
+      // Rise into space above the scene (title area) when needed
+      const minTop = -(headroom + 120);
       let topPx = lineEndY - lineGap - popupH;
       topPx = Math.max(minTop, topPx);
 
-      const idealLeft = pointX - popupW / 2;
+      const idealLeft = pointX - popupW * anchorX;
       const minLeft = pad;
       const maxLeft = sceneW - pad - popupW;
       let left;
       if (idealLeft >= minLeft && idealLeft <= maxLeft) {
-        // Fits — keep centered on the point
         left = idealLeft;
       } else {
         // Clamp to window; keep hotspot under popup so the line still meets it
@@ -2616,67 +2647,113 @@ function initGraphic3(root) {
       }
 
       shock.style.left = `${left}px`;
-      shock.style.top = `${(topPx / sceneH) * 100}%`;
-      line.style.left = `${(pointX / sceneW) * 100}%`;
+      shock.style.top = `${topPx}px`;
+      placeLineVertical(topPx + popupH);
+    } else if (desktopSide) {
+      // Horizontal callout: popup left of pin, line grows left ← from pin
+      const pinH = hotspot.offsetHeight * scale;
+      const pinW = hotspot.offsetWidth * scale;
+      const pinLeft = pointX - pinW / 2;
+      const pinMidY = tipY - pinH / 2;
+      const popupW = shock.offsetWidth;
+      const popupH = shock.offsetHeight;
+      const edgePad = 8;
+      let left = pinLeft - SIDE_LINE_LEN - popupW;
+      left = Math.max(edgePad, left);
+      const lineW = Math.max(0, pinLeft - (left + popupW));
+      let top = pinMidY - popupH / 2;
+      top = Math.max(edgePad, Math.min(top, sceneH - edgePad - popupH));
 
-      const popupBottomPx = topPx + popupH;
-      const lineH = Math.max(0, lineEndY - popupBottomPx);
-      line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
-      line.style.height = `${(lineH / sceneH) * 100}%`;
+      // Desktop shock uses translateX(-50%) — left is the horizontal center
+      shock.style.left = `${left + popupW / 2}px`;
+      shock.style.top = `${top}px`;
+      shock.style.setProperty("--shock-shift-x", "0px");
+
+      line.classList.add("is-horizontal");
+      line.style.left = `${left + popupW}px`;
+      line.style.top = `${pinMidY}px`;
+      line.style.width = `${lineW}px`;
+      line.style.height = "2px";
     } else {
       const shockTop = Math.max(2, yPct - POPUP_OFFSET_PCT);
       shock.style.top = `${shockTop}%`;
-      line.style.left = `${xPct}%`;
 
-      // Keep centered popup inside the scene (rightmost point at ~94%)
+      // CSS uses translate(-50% + shiftX); shift so line hits anchorX on the popup
       const popupW = shock.offsetWidth;
-      const halfW = popupW / 2;
       const edgePad = 8;
-      let shiftX = 0;
-      const rightOverflow = pointX + halfW - (sceneW - edgePad);
-      if (rightOverflow > 0) shiftX = -rightOverflow;
-      const leftOverflow = edgePad - (pointX - halfW);
-      if (leftOverflow > 0) shiftX = leftOverflow;
+      let shiftX = (0.5 - anchorX) * popupW;
+      const popupLeft = pointX - popupW / 2 + shiftX;
+      const rightOverflow = popupLeft + popupW - (sceneW - edgePad);
+      if (rightOverflow > 0) shiftX -= rightOverflow;
+      const leftOverflow = edgePad - (pointX - popupW / 2 + shiftX);
+      if (leftOverflow > 0) shiftX += leftOverflow;
       shock.style.setProperty("--shock-shift-x", `${shiftX}px`);
 
-      const popupBottomPx = (shockTop / 100) * sceneH + shock.offsetHeight;
-      const lineH = Math.max(0, lineEndY - popupBottomPx);
-      line.style.top = `${(popupBottomPx / sceneH) * 100}%`;
-      line.style.height = `${(lineH / sceneH) * 100}%`;
+      let popupBottomPx = (shockTop / 100) * sceneH + shock.offsetHeight;
+      // Halve footnote length by dropping the popup closer to the pin
+      const fullLineH = Math.max(0, lineEndY - popupBottomPx);
+      const lineH = fullLineH / 2;
+      popupBottomPx = lineEndY - lineH;
+      const newTopPct = ((popupBottomPx - shock.offsetHeight) / sceneH) * 100;
+      shock.style.top = `${Math.max(2, newTopPct)}%`;
+      placeLineVertical(popupBottomPx);
     }
   };
 
   const show = (hotspot) => {
     clearTimeout(showTimer);
+    clearTimeout(lineTimer);
+    clearTimeout(hideTimer);
     hoveredHotspot = hotspot;
     hotspots.forEach((h) => {
       h.classList.toggle("is-hover", h === hotspot);
       if (h === hotspot) h.classList.remove("is-pulsing");
     });
-    const restart = line.classList.contains("is-visible");
-    shock.classList.remove("is-visible");
-    if (restart) {
-      line.classList.remove("is-visible");
-      void line.offsetWidth;
-    }
-    // Place first at final coords, then draw footnote, then fade popup in place
+    // Snap line closed (no collapse tween) so pin→pin switches don't reverse mid-grow
+    line.style.transition = "none";
+    line.classList.remove("is-visible", "is-horizontal");
+    line.style.width = "";
+    line.style.height = "";
+    line.style.left = "";
+    line.style.top = "";
+    void line.offsetWidth;
+
     shock.style.transition = "none";
+    shock.classList.remove("is-visible");
     placeAt(hotspot);
     void shock.offsetWidth;
+    void line.offsetWidth;
     shock.style.transition = "";
-    line.classList.add("is-visible");
-    const popupDelay = window.matchMedia("(max-width: 860px)").matches ? 280 : 0;
+    line.style.transition = "";
+
+    // Marker grows first, then footnote line, then popup (CSS delay 0.22s)
+    lineTimer = window.setTimeout(() => {
+      line.classList.add("is-visible");
+    }, MARKER_SCALE_MS);
     showTimer = window.setTimeout(() => {
       shock.classList.add("is-visible");
-    }, restart ? 40 : popupDelay);
+    }, MARKER_SCALE_MS);
   };
 
   const hide = () => {
     clearTimeout(showTimer);
+    clearTimeout(lineTimer);
+    clearTimeout(hideTimer);
+    const pin = hoveredHotspot;
     hoveredHotspot = null;
-    hotspots.forEach((h) => h.classList.remove("is-hover"));
+    const lineWasVisible = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
+    if (!pin) return;
+    // Reverse of show: line/popup collapse first, then marker scale-down
+    if (!lineWasVisible) {
+      pin.classList.remove("is-hover");
+      return;
+    }
+    hideTimer = window.setTimeout(() => {
+      if (hoveredHotspot && hoveredHotspot !== pin) return;
+      pin.classList.remove("is-hover");
+    }, LINE_HIDE_MS);
   };
 
   hotspots.forEach((hotspot) => {

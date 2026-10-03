@@ -344,6 +344,11 @@ h1 {
   text-transform: uppercase;
 }
 
+.graphic-3 h3,
+.graphic-3 figcaption h3 {
+  color: #fff;
+}
+
 .graphic-chart figcaption p,
 .graphic-3 figcaption p {
   margin: 0 0 28px;
@@ -353,6 +358,11 @@ h1 {
   font-weight: 700;
   font-size: 17px;
   line-height: 20px;
+}
+
+.graphic-3 figcaption p {
+  color: #fff;
+  max-width: none;
 }
 
 .chart-canvas {
@@ -454,7 +464,8 @@ h1 {
 .graphic-3 {
   --g3-pad: 48px;
   --g3-gap: 15px;
-  --g3-shift: 60px;
+  --g3-shift: 0px;
+  position: relative;
   height: auto;
   aspect-ratio: auto;
   padding: 0;
@@ -462,14 +473,20 @@ h1 {
   margin-top: 88px;
   margin-bottom: 88px;
   container-type: inline-size;
-  background: #f1eeee;
+  background: transparent;
 }
 
-.graphic-3 > figcaption {
-  position: relative;
-  z-index: 2;
-  padding: 48px 70px 0;
+.graphic-3 figcaption {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: auto;
+  z-index: 3;
+  max-width: 400px;
+  padding: 48px 56px 0;
   margin: 0;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 .graphic-3 figcaption h3 {
@@ -482,7 +499,7 @@ h1 {
 
 .graphic-3-stage {
   position: relative;
-  margin-top: -80px;
+  margin-top: 0;
   width: 100%;
   overflow: visible;
   z-index: 1;
@@ -493,24 +510,26 @@ h1 {
   position: relative;
   width: 100%;
   overflow: visible;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: var(--radius-sm);
   z-index: 0;
 }
 
 .graphic-3-scene {
   position: relative;
   width: 100%;
-  aspect-ratio: auto;
-  height: calc(100cqw * 730 / 1094 + 10px);
+  /* Design mock card ratio */
+  aspect-ratio: 1559 / 1000;
+  height: auto;
   overflow: visible;
   z-index: 1;
+  border-radius: var(--radius-sm);
 }
 
 .graphic-3-photo {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  border-radius: var(--radius-sm);
   pointer-events: none;
   z-index: 0;
 }
@@ -522,31 +541,33 @@ h1 {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 50% 50%;
-  transform: translateY(calc(var(--g3-shift) - 60px));
+  object-position: left center;
+  transform: none;
   pointer-events: none;
 }
 
 .maya {
   position: absolute;
-  top: 13.07%;
-  left: 55.87%;
+  top: 68%;
+  left: 78.5%;
   right: auto;
+  bottom: auto;
   z-index: 2;
-  color: var(--ink);
-  transform: translateY(var(--g3-shift));
+  color: #fff;
+  transform: none;
+  text-align: left;
 }
 
 /* Hide Maya until entrance (avoids flash on refresh when already in view) */
 html:not(.no-animate) .graphic-3 .maya:not(.is-shown) {
   opacity: 0;
-  transform: translateY(var(--g3-shift)) translate3d(0, 18px, 0);
+  transform: translate3d(0, 18px, 0);
   transition: none;
 }
 
 html:not(.no-animate) .graphic-3 .maya.is-shown {
   opacity: 1;
-  transform: translateY(var(--g3-shift));
+  transform: none;
   transition:
     opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
@@ -582,7 +603,12 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   min-width: 180px;
   max-width: 260px;
   padding: 22px;
-  background: var(--navy);
+  /* Frosted glass — matches design mock */
+  background: rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
+  border: 0;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   color: #fff;
   border-radius: 18px;
   box-sizing: border-box;
@@ -616,7 +642,7 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
 .shock em {
   display: block;
   margin: 10px 0 16px;
-  color: var(--purple);
+  color: #fff;
   font-style: normal;
   font-family: Inter, system-ui, sans-serif;
   font-size: 14px;
@@ -634,7 +660,7 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   line-height: 15px;
   font-weight: 600;
   letter-spacing: -0.05em;
-  color: var(--purple-soft);
+  color: #fff;
   overflow-wrap: break-word;
   word-wrap: break-word;
 }
@@ -659,11 +685,23 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   transform: translateX(-50%) scaleY(1);
 }
 
+/* Desktop side callout (e.g. Income): grow left from the pin */
+.shock-line.is-horizontal {
+  height: 2px;
+  transform: translateY(-50%) scaleX(0);
+  transform-origin: 100% 50%;
+}
+
+.shock-line.is-horizontal.is-visible {
+  transform: translateY(-50%) scaleX(1);
+}
+
 .hotspot {
   position: absolute;
-  width: 44px;
-  height: 55px;
-  color: var(--pin-color, #783cff);
+  /* Mock pins ~24×26 on 843-wide artboard */
+  width: clamp(26px, calc(100cqw * 24 / 843), 34px);
+  height: clamp(28px, calc(100cqw * 26 / 843), 36px);
+  color: #fff;
   background: none;
   box-shadow: none;
   border-radius: 0;
@@ -683,8 +721,9 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
   display: block;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  object-fit: contain;
   pointer-events: none;
+  user-select: none;
 }
 
 .hotspot.is-pulsing {
@@ -795,13 +834,14 @@ html.no-animate .graphic-3 .hotspot,
   }
 }
 
-/* Centers from design PDF — pin tip at these coords */
-.hs-car { left: 20.78%; top: 73.68%; }
-.hs-pen { left: 27.64%; top: 51.34%; }
-.hs-gauge { left: calc(44.55% + 10px); top: calc(75.83% - 15px); }
-.hs-card { left: 57.14%; top: 83.17%; }
-.hs-bar { left: calc(76.5% + 55px); top: calc(69.67% + 18px); }
-.hs-case { left: 94.06%; top: 52.44%; }
+/* Tip coords remapped for aspect 1.559 */
+.hs-car { left: calc(13.3% - 50px); top: 80.2%; }
+.hs-pen { left: calc(22.6% - 50px); top: 51.6%; }
+.hs-gauge { left: 45.4%; top: 68.6%; }
+.hs-card { left: 49.6%; top: 88%; }
+.hs-bar { left: 58.9%; top: 51.2%; }
+.hs-keys { left: 62.5%; top: 82.9%; }
+.hs-case { left: 79.3%; top: 45.7%; }
 
 @keyframes hotspot-pulse {
   0% {
@@ -1264,13 +1304,13 @@ html:not(.no-animate) .main > p:not(.cta-wrap).is-shown {
 }
 
 .maya.anim-rise-block {
-  transform: translateY(var(--g3-shift)) translate3d(0, 18px, 0);
+  transform: translate3d(0, 18px, 0);
 }
 
 .maya.anim-rise-block.is-shown,
 html.no-animate .maya.anim-rise-block,
 .is-anim-done .maya.anim-rise-block {
-  transform: translateY(var(--g3-shift));
+  transform: none;
 }
 
 .anim-chrome {
@@ -1759,10 +1799,6 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     margin: 40px 0;
   }
 
-  .graphic-3 > figcaption {
-    padding: 0;
-  }
-
   #chart-1-wrap .chart-canvas,
   #chart-2-wrap .chart-canvas {
     min-height: 0;
@@ -1800,49 +1836,96 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
   .graphic-3 {
     --g3-pad: 24px;
     --g3-gap: 15px;
-    /* Same design shift as desktop, scaled to container width */
-    --g3-shift: calc(100cqw * 60 / 1094);
+    --g3-shift: 0px;
     --g3-lift: 0px;
+    /* Photo + pins sit below a dark title band inside the taller frame */
+    --g3-art-top: 30%;
+    --g3-art-left: -50%;
     height: auto;
     aspect-ratio: auto;
     padding: 0;
     overflow: visible;
     container-type: inline-size;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
   }
 
-  .graphic-3 > figcaption {
-    padding: 28px 20px 0;
-    /* Below stage so pin popups paint over the subtitle */
-    z-index: 1;
+  /* Title inside the frame: white on a band matching the photo top */
+  .graphic-3 figcaption {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    max-width: none;
+    width: 100%;
+    padding: 20px 20px 36px;
+    z-index: 3;
+    pointer-events: none;
+    box-sizing: border-box;
+    /* Match scene top corners — square caption was covering the radius */
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: linear-gradient(
+      to bottom,
+      #0a0610 0%,
+      #0a0610 55%,
+      rgba(10, 6, 16, 0) 100%
+    );
+  }
+
+  .graphic-3 figcaption h3 {
+    color: #fff;
+    font-size: 20px;
+    line-height: 24px;
+    margin: 0 0 8px;
+  }
+
+  .graphic-3 figcaption p {
+    color: #fff;
+    font-size: 15px;
+    line-height: 20px;
+    margin: 0;
   }
 
   .graphic-3-stage {
-    margin-top: -130px;
-    z-index: 2;
+    margin-top: 0;
+    z-index: 1;
+    width: 100%;
   }
 
   .graphic-3-media {
     aspect-ratio: auto;
-    /* Extra headroom so every pin popup can sit above its marker with a footnote gap */
-    height: calc(100cqw * 730 / 1094 + 160px);
-    overflow: visible;
-  }
-
-  /* Same aspect frame as desktop, pinned to the bottom */
-  .graphic-3-scene {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
     width: 100%;
-    height: calc(100cqw * 730 / 1094);
+    height: auto;
+    padding-top: 0;
     overflow: visible;
+    border-radius: var(--radius-sm);
   }
 
-  .graphic-3-photo {
-    inset: 0;
+  /* Taller window — clip image to rounded frame */
+  .graphic-3-scene {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 3;
     overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: #0a0610;
+  }
+
+  /* Position + crop the photo layer inside the rounded window */
+  .graphic-3-photo {
+    top: var(--g3-art-top);
+    left: var(--g3-art-left);
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    border-radius: 0;
   }
 
   .graphic-3-photo img {
@@ -1851,35 +1934,62 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     top: 0;
     width: 100%;
     height: 100%;
+    max-width: none;
     object-fit: cover;
-    object-position: 50% 50%;
-    /* Match desktop: g3-shift - 60px design units */
-    transform: translateY(calc(var(--g3-shift) - 100cqw * 60 / 1094));
+    object-position: left center;
+    transform: none;
   }
 
+  /* Remap pin/Maya Y into the lower art area: artTop + oldY * (1 - artTop) */
   .maya {
-    left: 55.87%;
-    top: 13.07%;
+    top: 77.6%;
+    left: 78.5%;
     right: auto;
-    transform: translateY(var(--g3-shift));
+    bottom: auto;
+    transform: none;
+  }
+
+  /* Left pins: drop desktop -50px offset; sit in the visible crop after photo left:-50% */
+  .hs-car {
+    left: 18%;
+    top: 86.1%;
+  }
+  .hs-pen {
+    left: 14%;
+    top: 66.1%;
+  }
+  .hs-gauge {
+    top: 78%;
+  }
+  .hs-card {
+    top: 91.6%;
+  }
+  .hs-bar {
+    top: 65.8%;
+  }
+  .hs-keys {
+    top: 88%;
+  }
+  .hs-case {
+    top: 62%;
   }
 
   html:not(.no-animate) .graphic-3 .maya:not(.is-shown) {
-    transform: translateY(var(--g3-shift)) translate3d(0, 12px, 0);
+    transform: translate3d(0, 12px, 0);
   }
 
   html:not(.no-animate) .graphic-3 .maya.is-shown {
-    transform: translateY(var(--g3-shift));
+    transform: none;
   }
 
   .maya.anim-rise-block {
-    transform: translateY(var(--g3-shift)) translate3d(0, 12px, 0);
+    transform: translate3d(0, 12px, 0);
   }
 
   .maya.anim-rise-block.is-shown,
   html.no-animate .maya.anim-rise-block,
   .is-anim-done .maya.anim-rise-block {
-    transform: translateY(var(--g3-shift));
+    transform: none;
   }
 
   .graphic-3 .maya strong {
@@ -1893,35 +2003,25 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     line-height: 12px;
   }
 
-  /* ~1.5× smaller than desktop 44×55; same tip anchoring as desktop */
   .hotspot {
-    width: 29px;
-    height: 37px;
-    transform: translate(-50%, -100%) translateY(var(--g3-shift));
+    transform: translate(-50%, -100%);
   }
 
   html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot:not(.is-shown) {
-    transform: translate(-50%, -100%) translateY(calc(var(--g3-shift) - 48px));
+    transform: translate(-50%, -100%) translateY(-48px);
   }
 
   html:not(.no-animate) .graphic-3:not(.is-anim-done) .hotspot.is-shown {
-    animation: pin-drop 0.85s forwards;
+    animation: pin-drop-mobile 0.85s forwards;
   }
 
   html.no-animate .graphic-3 .hotspot,
   .graphic-3.is-anim-done .hotspot {
-    transform: translate(-50%, -100%) translateY(var(--g3-shift));
+    transform: translate(-50%, -100%);
   }
 
-  /* Same desktop nudges, scaled to container width */
-  .hs-gauge {
-    left: calc(44.55% + 100cqw * 10 / 1094);
-    top: calc(75.83% - 100cqw * 15 / 1094);
-  }
-
-  .hs-bar {
-    left: calc(76.5% + 100cqw * 55 / 1094);
-    top: calc(69.67% + 100cqw * 18 / 1094);
+  .graphic-3.is-anim-done .hotspot.is-hover {
+    transform: translate(-50%, -100%) scale(1.18);
   }
 
   .shock {
