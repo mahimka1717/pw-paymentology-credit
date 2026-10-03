@@ -2132,6 +2132,53 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
 
   .graphic-3 {
     --g3-pad: 40px;
+    /* Current mobile frame height (2/3), then shorten + lift art by 200px */
+    --g3-h: calc(100cqw * 3 / 2);
+    --g3-lift: 200px;
+  }
+
+  .graphic-3-scene {
+    aspect-ratio: auto;
+    height: calc(var(--g3-h) - var(--g3-lift));
+  }
+
+  /* Same crop as mobile, raised 100px with the shorter frame */
+  .graphic-3-photo {
+    top: calc(var(--g3-h) * 0.3 - var(--g3-lift));
+    bottom: auto;
+    height: calc(var(--g3-h) * 0.7);
+  }
+
+  .maya {
+    top: calc(var(--g3-h) * 0.776 - var(--g3-lift));
+  }
+
+  .hs-car {
+    top: calc(var(--g3-h) * 0.861 - var(--g3-lift));
+  }
+
+  .hs-pen {
+    top: calc(var(--g3-h) * 0.661 - var(--g3-lift));
+  }
+
+  .hs-gauge {
+    top: calc(var(--g3-h) * 0.78 - var(--g3-lift));
+  }
+
+  .hs-card {
+    top: calc(var(--g3-h) * 0.916 - var(--g3-lift));
+  }
+
+  .hs-bar {
+    top: calc(var(--g3-h) * 0.658 - var(--g3-lift));
+  }
+
+  .hs-keys {
+    top: calc(var(--g3-h) * 0.88 - var(--g3-lift));
+  }
+
+  .hs-case {
+    top: calc(var(--g3-h) * 0.62 - var(--g3-lift));
   }
 
   #chart-1-wrap .chart-canvas {
