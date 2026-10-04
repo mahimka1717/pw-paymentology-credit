@@ -727,7 +727,7 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
 }
 
 .hotspot.is-pulsing {
-  animation: pin-color-pulse 1.6s ease-in-out infinite;
+  animation: pin-color-pulse 1.7s ease-in-out infinite;
 }
 
 .hotspot::before {
@@ -770,10 +770,10 @@ html.no-animate .graphic-3 .hotspot,
 
 /* Pulse only — never restarts pin-drop */
 .graphic-3.is-anim-done .hotspot.is-pulsing {
-  animation: pin-color-pulse 1.6s ease-in-out infinite;
+  animation: pin-color-pulse 1.7s ease-in-out infinite;
 }
 
-/* Hover: same peak scale as pulse; tour skips this pin while hovered */
+/* Hover scale unchanged; tour skips this pin while hovered */
 .graphic-3.is-anim-done .hotspot.is-hover {
   animation: none !important;
   transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.18);
@@ -802,14 +802,26 @@ html.no-animate .graphic-3 .hotspot,
   }
 }
 
-/* Grow from tip; tip stays planted — size only */
+/* Grow from tip; tip stays planted — soft double beat
+   (dip back to 1 between peaks so minify can't collapse to a single swell) */
 @keyframes pin-color-pulse {
-  0%,
-  100% {
+  0% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
+  }
+  18% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.28);
+  }
+  34% {
     transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
   }
   50% {
-    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.18);
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1.22);
+  }
+  66% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
+  }
+  100% {
+    transform: translate(-50%, -100%) translateY(var(--g3-shift)) scale(1);
   }
 }
 

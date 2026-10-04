@@ -132,6 +132,15 @@ function createPulseTour({
     if (!gapMs) timer = window.setInterval(tick, intervalMs);
   };
 
+  /** Continue from the current step (does not reset the queue). */
+  const resumeTour = () => {
+    if (mode === "tour") return;
+    mode = "tour";
+    stopTimer();
+    tick();
+    if (!gapMs) timer = window.setInterval(tick, intervalMs);
+  };
+
   const lock = (els) => {
     mode = "lock";
     stopTimer();
@@ -144,7 +153,7 @@ function createPulseTour({
     clear();
   };
 
-  return { startTour, lock, stop, clear };
+  return { startTour, resumeTour, lock, stop, clear };
 }
 
 function wait(ms) {
@@ -2543,6 +2552,7 @@ function initGraphic3(root) {
   let showTimer = 0;
   let lineTimer = 0;
   let hideTimer = 0;
+  let resumePulseTimer = 0;
   let hoveredHotspot = null;
   const MARKER_SCALE_MS = 280; // matches .hotspot hover transition 0.28s
   const LINE_HIDE_MS = 400; // matches .shock-line transition 0.4s
@@ -2552,17 +2562,11 @@ function initGraphic3(root) {
     (a, b) => Number(a.dataset.x) - Number(b.dataset.x)
   );
   const pulseTour = createPulseTour({
-    // Skip the hovered pin — tour keeps running for the rest
-    getSteps: () =>
-      pulseOrder.filter((h) => h !== hoveredHotspot).map((h) => [h]),
+    getSteps: () => pulseOrder.map((h) => [h]),
     applyPulse: (el, on) => {
-      if (el === hoveredHotspot) {
-        el.classList.remove("is-pulsing");
-        return;
-      }
       el.classList.toggle("is-pulsing", !!on);
     },
-    intervalMs: 1600,
+    intervalMs: 1700,
     gapMs: 700,
   });
 
@@ -2704,10 +2708,11 @@ function initGraphic3(root) {
     clearTimeout(showTimer);
     clearTimeout(lineTimer);
     clearTimeout(hideTimer);
+    clearTimeout(resumePulseTimer);
+    pulseTour.stop();
     hoveredHotspot = hotspot;
     hotspots.forEach((h) => {
       h.classList.toggle("is-hover", h === hotspot);
-      if (h === hotspot) h.classList.remove("is-pulsing");
     });
     // Snap line closed (no collapse tween) so pin→pin switches don't reverse mid-grow
     line.style.transition = "none";
@@ -2739,11 +2744,17 @@ function initGraphic3(root) {
     clearTimeout(showTimer);
     clearTimeout(lineTimer);
     clearTimeout(hideTimer);
+    clearTimeout(resumePulseTimer);
     const pin = hoveredHotspot;
     hoveredHotspot = null;
     const lineWasVisible = line.classList.contains("is-visible");
     shock.classList.remove("is-visible");
     line.classList.remove("is-visible");
+    // Delay resume so pin→pin moves don't advance/restart the queue
+    resumePulseTimer = window.setTimeout(() => {
+      if (hoveredHotspot) return;
+      if (root.classList.contains("is-anim-done")) pulseTour.resumeTour();
+    }, 80);
     if (!pin) return;
     // Reverse of show: line/popup collapse first, then marker scale-down
     if (!lineWasVisible) {
