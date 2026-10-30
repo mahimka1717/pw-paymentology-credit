@@ -849,13 +849,13 @@ html.no-animate .graphic-3 .hotspot,
 }
 
 /* Tip coords remapped for aspect 1.559 */
-.hs-car { left: calc(13.3% - 50px); top: 80.2%; }
-.hs-pen { left: calc(22.6% - 50px); top: 51.6%; }
-.hs-gauge { left: 45.4%; top: 68.6%; }
-.hs-card { left: 49.6%; top: 88%; }
-.hs-bar { left: 58.9%; top: 51.2%; }
-.hs-keys { left: 62.5%; top: 82.9%; }
-.hs-case { left: 79.3%; top: 45.7%; }
+.hs-expense { left: calc(13.3% - 50px); top: 80.2%; }
+.hs-employment { left: calc(22.6% - 50px); top: 51.6%; }
+.hs-credit-history { left: 45.4%; top: 68.6%; }
+.hs-income { left: 49.6%; top: 88%; }
+.hs-shock { left: 58.9%; top: 51.2%; }
+.hs-spending { left: 62.5%; top: 82.9%; }
+.hs-access { left: 79.3%; top: 45.7%; }
 
 @keyframes hotspot-pulse {
   0% {
@@ -1987,27 +1987,27 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
   }
 
   /* Left pins: drop desktop -50px offset; sit in the visible crop after photo left:-50% */
-  .hs-car {
+  .hs-expense {
     left: 18%;
     top: 86.1%;
   }
-  .hs-pen {
+  .hs-employment {
     left: 14%;
     top: 66.1%;
   }
-  .hs-gauge {
+  .hs-credit-history {
     top: 78%;
   }
-  .hs-card {
+  .hs-income {
     top: 91.6%;
   }
-  .hs-bar {
+  .hs-shock {
     top: 65.8%;
   }
-  .hs-keys {
+  .hs-spending {
     top: 88%;
   }
-  .hs-case {
+  .hs-access {
     top: 62%;
   }
 
@@ -2190,31 +2190,31 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     top: calc(var(--g3-h) * 0.776 - var(--g3-lift));
   }
 
-  .hs-car {
+  .hs-expense {
     top: calc(var(--g3-h) * 0.861 - var(--g3-lift));
   }
 
-  .hs-pen {
+  .hs-employment {
     top: calc(var(--g3-h) * 0.661 - var(--g3-lift));
   }
 
-  .hs-gauge {
+  .hs-credit-history {
     top: calc(var(--g3-h) * 0.78 - var(--g3-lift));
   }
 
-  .hs-card {
+  .hs-income {
     top: calc(var(--g3-h) * 0.916 - var(--g3-lift));
   }
 
-  .hs-bar {
+  .hs-shock {
     top: calc(var(--g3-h) * 0.658 - var(--g3-lift));
   }
 
-  .hs-keys {
+  .hs-spending {
     top: calc(var(--g3-h) * 0.88 - var(--g3-lift));
   }
 
-  .hs-case {
+  .hs-access {
     top: calc(var(--g3-h) * 0.62 - var(--g3-lift));
   }
 

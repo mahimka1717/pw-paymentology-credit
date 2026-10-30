@@ -2586,43 +2586,43 @@ function initGraphic3(root) {
   };
   // Left → right by hotspot x
   const popups = {
-    car: {
+    expense: {
       titleHtml: "Unexpected<br />expense",
       subtitle: "€1,000 car repair",
       body: "A one-off expense puts temporary pressure on her finances.",
     },
-    pen: {
+    employment: {
       titleHtml: "Employment",
       subtitle: "Freelance + part-time",
       body: "Moves between different forms of work.",
     },
-    gauge: {
+    "credit-history": {
       titleHtml: "Credit<br />history",
       subtitle: "Good credit score",
       body: "Her credit history remains strong despite variable income.",
       // Line meets popup at 3/4 → shift left of pin
       anchorX: 0.75,
     },
-    card: {
+    income: {
       titleHtml: "Income",
       subtitle: "€6,500 > €2,000 > €4,000",
       body: "Income changes as projects start and end.",
       // Desktop only: footnote left of pin, popup to the left
       desktopSide: "left",
     },
-    bar: {
+    shock: {
       titleHtml: "Economic<br />shock",
       subtitle: "Freelance demand falls",
       body: "A downturn reduces her income further.",
       // Line meets popup at 1/4 → shift right of pin
       anchorX: 0.25,
     },
-    keys: {
+    spending: {
       titleHtml: "Spending",
       subtitle: "Essential costs continue",
       body: "Rent, utilities and everyday essentials still need to be paid when income dips.",
     },
-    case: {
+    access: {
       titleHtml: "Credit<br />access",
       subtitle: "Loan declined",
       body: "A conventional assessment struggles to distinguish temporary volatility from longer-term risk.",
