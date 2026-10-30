@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="no-animate">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -24,6 +24,16 @@
     href="public/fonts/PPMonumentExtended-Black.woff2"
     crossorigin
   />
+  <script>
+    // Copy stays visible (no-animate) unless article.js can run the reveal animations.
+    (function (root) {
+      if (!("IntersectionObserver" in window)) return;
+      root.classList.remove("no-animate");
+      document.addEventListener("DOMContentLoaded", function () {
+        if (!window.articleReady) root.classList.add("no-animate");
+      });
+    })(document.documentElement);
+  </script>
   <link rel="stylesheet" href="css/article.min.css" />
 </head>
 <body>
@@ -216,7 +226,7 @@
       </p>
 
 
-      <h2>From fixed credit to adaptive<br />credit</h2>
+      <h2>From fixed credit to adaptive<br /> credit</h2>
       <p>
         Building a credit system for an unpredictable world also requires rethinking how credit works once it has been provided.
       </p>
@@ -405,7 +415,7 @@
         So, any platform seeking to bridge modern credit gaps must carry off the difficult double act of scaling globally while complying with a wide variety of local rules. From a technology perspective, this requires cloud-based systems that can be configured to a changing landscape. A lending platform must allow risk and compliance teams to dynamically adjust risk repayment hierarchies as regulations evolve, without waiting months for a software update.
       </p>
 
-      <h2 id="heading-infrastructure">The infrastructure behind<br />adaptive credit</h2>
+      <h2 id="heading-infrastructure">The infrastructure behind<br /> adaptive credit</h2>
       <p>
         Paymentology serves as the technological layer that brings adaptive credit to life. As a global card issuing processor, Paymentology empowers fintechs and digital banks to move away from one-size-fits-all credit models to more flexible, context-aware credit products. It uses an API-first, cloud-native platform to give issuers the tools to offer hybrid accounts, blending revolving credit and instalment features into a single unified customer experience. Behind the scenes, issuers can configure how their credit products work to suit their market and proposition, from billing cycles and repayment dates to interest rates, fees and payment hierarchies, with calendars tailored to local weekends and public holidays. And it is fast.
       </p>

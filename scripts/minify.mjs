@@ -25,6 +25,8 @@ const jsResult = await minifyJs(js, {
 if (!jsResult.code) throw new Error("terser produced empty output");
 const htmlResult = await minifyHtml(html, {
   collapseWhitespace: true,
+  // Keep a space around <br>: mobile CSS hides it, and words would merge.
+  conservativeCollapse: true,
   removeComments: true,
 });
 
@@ -35,9 +37,10 @@ writeFileSync(join(dist, "index.html"), htmlResult);
 writeFileSync(join(dist, "css/article.min.css"), cssResult);
 writeFileSync(join(dist, "js/article.min.js"), jsResult.code);
 cpSync(join(root, "public"), join(dist, "public"), { recursive: true });
+cpSync(join(root, "robots.txt"), join(dist, "robots.txt"));
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KiB`;
 console.log(`index.html       ${kb(Buffer.byteLength(html))} → dist/index.html  ${kb(Buffer.byteLength(htmlResult))}`);
 console.log(`css/article.css  ${kb(Buffer.byteLength(css))} → dist/css/article.min.css  ${kb(Buffer.byteLength(cssResult))}`);
 console.log(`js/article.js    ${kb(Buffer.byteLength(js))} → dist/js/article.min.js  ${kb(Buffer.byteLength(jsResult.code))}`);
-console.log("Copied public/ → dist/public/");
+console.log("Copied public/ → dist/public/, robots.txt → dist/robots.txt");

@@ -2212,3 +2212,13 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
     line-height: 22px;
   }
 }
+
+/* Print: show the final state at once, not mid-transition */
+@media print {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

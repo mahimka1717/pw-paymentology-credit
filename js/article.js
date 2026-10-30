@@ -20,6 +20,12 @@ function animationsEnabled() {
 const ANIM_ON = animationsEnabled();
 if (!ANIM_ON) document.documentElement.classList.add("no-animate");
 
+// Print the whole article, not just the copy revealed so far
+window.addEventListener("beforeprint", () => document.documentElement.classList.add("no-animate"));
+window.addEventListener("afterprint", () => {
+  if (ANIM_ON) document.documentElement.classList.remove("no-animate");
+});
+
 function svgEl(name, attrs = {}) {
   const el = document.createElementNS("http://www.w3.org/2000/svg", name);
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
@@ -3089,3 +3095,6 @@ function initGlassParallax() {
 }
 
 initGlassParallax();
+
+// Checked by the inline script in <head>: without it the copy falls back to no-animate
+window.articleReady = true;
