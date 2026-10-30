@@ -6,3 +6,4 @@ node_modules
 *.report.json
 .lighthouse-*
 public/img/opt/
+src-img/
