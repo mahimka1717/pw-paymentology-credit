@@ -698,7 +698,9 @@ html:not(.no-animate) .graphic-3 .maya.is-shown {
 
 .hotspot {
   position: absolute;
-  /* Mock pins ~24×26 on 843-wide artboard */
+  /* Mock pins ~24×26 on 843-wide artboard; fixed size first for Safari < 16 (no cqw) */
+  width: 30px;
+  height: 32px;
   width: clamp(26px, calc(100cqw * 24 / 843), 34px);
   height: clamp(28px, calc(100cqw * 26 / 843), 36px);
   color: #fff;
@@ -2243,5 +2245,17 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
   *::after {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Reduced motion: JS skips the reveal sequences; this stops the remaining CSS motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

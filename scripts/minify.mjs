@@ -36,11 +36,18 @@ mkdirSync(join(dist, "js"), { recursive: true });
 writeFileSync(join(dist, "index.html"), htmlResult);
 writeFileSync(join(dist, "css/article.min.css"), cssResult);
 writeFileSync(join(dist, "js/article.min.js"), jsResult.code);
-cpSync(join(root, "public"), join(dist, "public"), { recursive: true });
+// The source index.html loads the .min files too, so keep the local copies in sync
+writeFileSync(join(root, "css/article.min.css"), cssResult);
+writeFileSync(join(root, "js/article.min.js"), jsResult.code);
+cpSync(join(root, "public"), join(dist, "public"), {
+  recursive: true,
+  filter: (src) => !src.endsWith(".DS_Store"),
+});
 cpSync(join(root, "robots.txt"), join(dist, "robots.txt"));
 
 const kb = (n) => `${(n / 1024).toFixed(1)} KiB`;
 console.log(`index.html       ${kb(Buffer.byteLength(html))} → dist/index.html  ${kb(Buffer.byteLength(htmlResult))}`);
 console.log(`css/article.css  ${kb(Buffer.byteLength(css))} → dist/css/article.min.css  ${kb(Buffer.byteLength(cssResult))}`);
 console.log(`js/article.js    ${kb(Buffer.byteLength(js))} → dist/js/article.min.js  ${kb(Buffer.byteLength(jsResult.code))}`);
+console.log("Updated css/article.min.css and js/article.min.js for local preview");
 console.log("Copied public/ → dist/public/, robots.txt → dist/robots.txt");

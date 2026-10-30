@@ -7,9 +7,11 @@ const GRID = "#c8c8dc";
 const INK = "#15154d";
 
 const animParams = new URLSearchParams(window.location.search);
+const REDUCE_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function animationsEnabled() {
-  // Opt out only via URL; keep motion on by default (incl. iOS Safari)
+  // Off for the system "reduce motion" setting or via URL; otherwise on (incl. iOS Safari)
+  if (REDUCE_MOTION) return false;
   if (animParams.get("animate") === "no") return false;
   if (window.matchMedia("(max-width: 860px)").matches && animParams.get("mobileanimate") === "no") {
     return false;
@@ -68,6 +70,7 @@ function createPulseTour({
   applyPulse = setAnnDotPulsing,
   intervalMs = 1800,
   gapMs = 0,
+  signal,
 } = {}) {
   let timer = 0;
   let step = 0;
@@ -131,6 +134,11 @@ function createPulseTour({
   };
 
   const startTour = () => {
+    // No endless idle pulsing for reduced motion; lock() still marks the selected dots
+    if (REDUCE_MOTION || signal?.aborted) {
+      stop();
+      return;
+    }
     mode = "tour";
     stopTimer();
     step = 0;
@@ -140,7 +148,7 @@ function createPulseTour({
 
   /** Continue from the current step (does not reset the queue). */
   const resumeTour = () => {
-    if (mode === "tour") return;
+    if (mode === "tour" || REDUCE_MOTION || signal?.aborted) return;
     mode = "tour";
     stopTimer();
     tick();
@@ -158,6 +166,9 @@ function createPulseTour({
     stopTimer();
     clear();
   };
+
+  // Chart re-render: the old tour must not keep ticking on detached nodes
+  signal?.addEventListener("abort", stop);
 
   return { startTour, resumeTour, lock, stop, clear };
 }
@@ -178,7 +189,7 @@ function visibleRatio(el) {
   return Math.min(1, visibleH / Math.min(rect.height, vh));
 }
 
-function whenInView(el, onEnter, threshold = 0.12) {
+function whenInView(el, onEnter, threshold = 0.12, signal) {
   if (!el) return;
   if (!ANIM_ON) {
     el.classList.add("is-in", "is-anim-done");
@@ -211,6 +222,11 @@ function whenInView(el, onEnter, threshold = 0.12) {
     { threshold: steps, rootMargin: "0px" }
   );
   io.observe(el);
+  // Chart re-render: drop the observer for the old, detached nodes
+  signal?.addEventListener("abort", () => {
+    done = true;
+    io.disconnect();
+  });
 
   // Safari often skips the initial IO callback for already-visible nodes
   const checkNow = () => {
@@ -651,7 +667,7 @@ function animateOnView(node) {
 }
 
 /** Hover on mouse; tap to open, tap outside to close (Chrome touch emulation + devices). */
-function bindHoverOrTap(targets, { show, hide }) {
+function bindHoverOrTap(targets, { show, hide, signal }) {
   const list = [...targets];
   let open = false;
   let sticky = false;
@@ -722,7 +738,7 @@ function bindHoverOrTap(targets, { show, hide }) {
       hide();
       open = false;
     },
-    true
+    { capture: true, signal }
   );
 }
 
@@ -730,7 +746,7 @@ function scaleY(value, min, max, top, bottom) {
   return top + ((max - value) / (max - min)) * (bottom - top);
 }
 
-function drawChart1(root) {
+function drawChart1(root, signal) {
   const wrap = setupChartAnim(root);
   const isMobile = window.matchMedia("(max-width: 860px)").matches;
   const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
@@ -1198,6 +1214,7 @@ function drawChart1(root) {
           return els;
         })
         .filter((els) => els.length),
+    signal,
   });
 
   const pulseSelectedOrTour = () => {
@@ -1236,6 +1253,7 @@ function drawChart1(root) {
   bindHoverOrTap(annHotspots, {
     show: (el) => showAnn(annHotspots.indexOf(el)),
     hide: hideAnn,
+    signal,
   });
 
   const legendRight = plotR;
@@ -1430,10 +1448,10 @@ function drawChart1(root) {
       },
     });
     if (!pulseStarted) pulseTour.startTour();
-  }, 0.5);
+  }, 0.5, signal);
 }
 
-function drawChart2(root) {
+function drawChart2(root, signal) {
   const wrap = setupChartAnim(root);
   const isMobile = window.matchMedia("(max-width: 860px)").matches;
   const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
@@ -2369,10 +2387,6 @@ function drawChart2(root) {
 
   // Mobile: tap anywhere except active dots closes popup; drag-end keeps it open
   if (isMobile) {
-    if (root._chart2TouchAbort) root._chart2TouchAbort.abort();
-    root._chart2TouchAbort = new AbortController();
-    const { signal } = root._chart2TouchAbort;
-
     const isActiveDotTarget = (node) => {
       const el =
         (node && typeof node.closest === "function" && node.closest(".ann-dot-scrub-hit")) ||
@@ -2514,7 +2528,7 @@ function drawChart2(root) {
     showEl(scrubHandle);
     showEl(scrubPulse);
     applyScrubberAt(scrubIdx, { popup: false });
-  }, 0.5);
+  }, 0.5, signal);
 }
 
 function mountChart(root, draw) {
@@ -2525,11 +2539,15 @@ function mountChart(root, draw) {
   let wasTablet = null;
   const mqMobile = "(max-width: 860px)";
   const mqTablet = "(min-width: 500px) and (max-width: 860px)";
+  let abort = null;
   const render = () => {
+    // Tear down the previous draw's document listeners, observers and pulse timers
+    abort?.abort();
+    abort = new AbortController();
     const wrap = root.closest(".graphic-chart");
     wrap?.classList.remove("is-in", "is-anim-done");
     root.innerHTML = "";
-    draw(root);
+    draw(root, abort.signal);
     lastW = root.clientWidth;
     wasMobile = window.matchMedia(mqMobile).matches;
     wasTablet = window.matchMedia(mqTablet).matches;
@@ -2900,6 +2918,23 @@ function initGraphic3(root) {
     root.classList.add("is-anim-done");
     pulseTour.startTour();
   }, 2 / 3);
+
+  // Subtitle lines are measured once: re-split them after a width change (rotation, resize)
+  // and close the popup, which was positioned for the old layout
+  let resizeTimer = 0;
+  let lastW = window.innerWidth;
+  window.addEventListener("resize", () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      // iOS fires resize when the toolbar shows or hides; only width matters here
+      if (window.innerWidth === lastW) return;
+      lastW = window.innerWidth;
+      hide();
+      if (!ANIM_ON || !g3Sub) return;
+      armRiseLines(g3Sub);
+      if (root.classList.contains("is-in")) prepareRiseLines(g3Sub).forEach(showEl);
+    }, 150);
+  });
 }
 
 function initQuotes() {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="no-animate">
+<html lang="en-GB" class="no-animate">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -37,6 +37,7 @@
     // Copy stays visible (no-animate) unless article.js can run the reveal animations.
     (function (root) {
       if (!("IntersectionObserver" in window)) return;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       root.classList.remove("no-animate");
       document.addEventListener("DOMContentLoaded", function () {
         if (!window.articleReady) root.classList.add("no-animate");
@@ -51,6 +52,7 @@
     <div class="glass-layer" aria-hidden="true">
       <img
         class="glass glass--0 glass--knockout"
+        src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
         data-src="public/img/glass0.webp"
         alt=""
         width="800"
@@ -58,10 +60,12 @@
         data-side="right"
         data-parallax="0.22"
         data-width="380"
+        loading="lazy"
         decoding="async"
       />
       <img
         class="glass glass--1 glass--screen"
+        src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
         data-src="public/img/glass1.webp"
         alt=""
         width="800"
@@ -69,10 +73,12 @@
         data-side="left"
         data-parallax="0.3"
         data-width="300"
+        loading="lazy"
         decoding="async"
       />
       <img
         class="glass glass--2 glass--knockout"
+        src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
         data-src="public/img/glass2.webp"
         alt=""
         width="800"
@@ -80,10 +86,12 @@
         data-side="right"
         data-parallax="0.18"
         data-width="340"
+        loading="lazy"
         decoding="async"
       />
       <img
         class="glass glass--3 glass--knockout"
+        src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
         data-src="public/img/glass3.webp"
         alt=""
         width="800"
@@ -91,6 +99,7 @@
         data-side="left"
         data-parallax="0.26"
         data-width="360"
+        loading="lazy"
         decoding="async"
       />
     </div>
@@ -105,12 +114,11 @@
         height="896"
         alt=""
         fetchpriority="high"
-        decoding="async"
       />
       <figure class="graphic graphic-0">
         <img
           src="public/img/g0-1200.webp"
-          srcset="public/img/g0-800.webp 800w, public/img/g0-1200.webp 1200w"
+          srcset="public/img/g0-800.webp 800w, public/img/g0-1200.webp 1200w, public/img/g0-1800.webp 1800w, public/img/g0-2400.webp 2400w"
           sizes="(max-width: 860px) 100vw, min(1084px, 100vw)"
           width="1200"
           height="670"
@@ -185,7 +193,7 @@
 
 
       <p>
-        The answer lies in technology that gives lenders a real-time view of a customer’s financial situation, enabling a more dynamic approach than traditional credit models provide. “The future of credit needs to be responsive, because it cannot keep relying on stale snapshots of the user,” says Nida Khan, Product Manager  at Paymentology.
+        The answer lies in technology that gives lenders a real-time view of a customer’s financial situation, enabling a more dynamic approach than traditional credit models provide. “The future of credit needs to be responsive, because it cannot keep relying on stale snapshots of the user,” says Nida Khan, Product Manager at Paymentology.
       </p>
       <p>
         Credit decisions must be faster and informed by context, including temporary economic shocks and changes in how people earn. Someone might move from salaried employment to freelancing and back again as work opportunities evolve.
@@ -193,7 +201,7 @@
 
       <figure class="graphic graphic-chart anim-chart" id="chart-2-wrap">
         <figcaption>
-          <h3>SEE HOW SUCCESSIVE SHOCKS CHANGED CREDIT APPLICATIONS AND ACCEPTANCE ACROSS EUROPE</h3>
+          <h3>See how successive shocks changed credit applications and acceptance across Europe</h3>
           <p>
             Drag the marker to follow the impact over time
           </p>
@@ -253,8 +261,8 @@
               <div class="graphic-3-photo">
                 <img
                   src="public/img/g3-1200.webp"
-                  srcset="public/img/g3-800.webp 800w, public/img/g3-1200.webp 1200w"
-                  sizes="(max-width: 860px) 100vw, min(1084px, 100vw)"
+                  srcset="public/img/g3-800.webp 800w, public/img/g3-1200.webp 1200w, public/img/g3-1800.webp 1800w, public/img/g3-2400.webp 2400w"
+                  sizes="(max-width: 860px) 185vw, 1250px"
                   width="1200"
                   height="670"
                   alt="Freelance designer working at a desk"
