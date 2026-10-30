@@ -27,3 +27,31 @@ The Vercel deployment is a preview only, so it is hidden from search engines in 
 `index.html` itself has no `noindex` meta tag, so the page markup can be reused as is.
 
 **To do when hosting on the hub:** do not carry over the `Disallow: /` rule or the `X-Robots-Tag` header to the production site.
+
+### Social card image, og:url and canonical need the final URL
+
+`index.html` already has `og:type`, `og:site_name`, `og:title`, `og:description` and `twitter:card`. The tags that need an absolute URL were left out because the final address is not known yet.
+
+The card image is ready: `public/img/og.jpg`, 1200×630.
+
+**To do:** add these to `<head>` with the real address of the article:
+
+```html
+<link rel="canonical" href="https://EXAMPLE.COM/ARTICLE-PATH" />
+<meta property="og:url" content="https://EXAMPLE.COM/ARTICLE-PATH" />
+<meta property="og:image" content="https://EXAMPLE.COM/ARTICLE-PATH/public/img/og.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Glowing world map on a purple background" />
+```
+
+### No favicon
+
+The page does not reference a favicon, so browsers request `/favicon.ico` and get a 404. There is no suitable brand icon in the repo.
+
+**To do:** add the hub's favicon, for example:
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+```

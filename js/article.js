@@ -688,6 +688,29 @@ function bindHoverOrTap(targets, { show, hide }) {
       show(el);
       open = true;
     });
+    // Keyboard: focus shows, Enter/Space pins it open, Escape or tabbing away closes
+    el.addEventListener("focus", () => {
+      show(el);
+      open = true;
+    });
+    el.addEventListener("blur", (e) => {
+      if (isTarget(e.relatedTarget)) return;
+      sticky = false;
+      hide();
+      open = false;
+    });
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        sticky = true;
+        show(el);
+        open = true;
+      } else if (e.key === "Escape" && open) {
+        sticky = false;
+        hide();
+        open = false;
+      }
+    });
   });
 
   document.addEventListener(
@@ -713,7 +736,8 @@ function drawChart1(root) {
   const isTablet = window.matchMedia("(min-width: 500px) and (max-width: 860px)").matches;
   const w = isMobile ? Math.max(320, Math.round(root.clientWidth || 390)) : 944;
   const h = isMobile ? 460 : 400;
-  const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
+  // group, not img: an img role would hide the legend buttons and hotspots from screen readers
+  const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "group" });
   svg.setAttribute("aria-label", "New credit card originations during COVID-19");
 
   // Tablet: grid = content column; Y labels sit in the left overhang only
@@ -912,10 +936,20 @@ function drawChart1(root) {
   const dots = allPts.map((p, i) => [p, ficoPts[i]]);
   const annHotspots = [];
   const annDots = [];
+  // Spoken summary of each popup (the popup itself is drawn as SVG text)
+  const annLabels = [
+    "April 2020: about 60% fewer new cards versus Jan 2020, and about 90% fewer for the riskiest borrowers. The market almost froze.",
+    "July 2020: about 50% fewer new cards, and about 90% lower for the riskiest borrowers, with no sign of recovery. The gap remained stark.",
+  ];
   const annLayer = makeAnnDotLayer(root, w, h);
   annIdx.forEach((i) => {
     const [a, f] = dots[i];
-    const hotspot = svgEl("g", { class: "ann-hotspot" });
+    const hotspot = svgEl("g", {
+      class: "ann-hotspot",
+      tabindex: "0",
+      role: "button",
+      "aria-label": annLabels[annHotspots.length],
+    });
     const allDot = makeAnnDot(annLayer, w, h, a[0], a[1], PURPLE);
     const ficoDot = makeAnnDot(annLayer, w, h, f[0], f[1], PURPLE_SOFT);
     annDots.push({ all: allDot, fico: ficoDot });
@@ -1416,7 +1450,7 @@ function drawChart2(root) {
   const fsLegend = isMobile ? 12 : 13;
   const lineW = isMobile ? 3 : 2.5;
   const dotR = isMobile ? 3.5 : 3;
-  const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
+  const svg = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "group" });
   svg.setAttribute("aria-label", "European credit acceptance and application rates");
 
   const defs = svgEl("defs");
@@ -1972,9 +2006,17 @@ function drawChart2(root) {
 
   let activePointerId = null;
 
+  const setScrubAria = (i) => {
+    scrubRail.setAttribute("aria-valuenow", String(i));
+    scrubRail.setAttribute(
+      "aria-valuetext",
+      `${quarterLabels[i].join(" ")}: acceptance ${accept[i]}%, applications ${apply[i]}%`
+    );
+  };
+
   const jumpToQuarter = (i) => {
     applyScrubberAt(i, { animate: false, popup: true });
-    scrubRail.setAttribute("aria-valuenow", String(i));
+    setScrubAria(i);
   };
 
   const stopWindowDrag = () => {
@@ -2007,7 +2049,7 @@ function drawChart2(root) {
         ? !!(calloutCopy[i] && quarterHasActive(i))
         : popupHover > 0;
       applyScrubberAt(i, { animate: true, popup: keepPopup });
-      scrubRail.setAttribute("aria-valuenow", String(i));
+      setScrubAria(i);
     });
   };
 
@@ -2033,10 +2075,24 @@ function drawChart2(root) {
   // Block browser scroll/gesture takeover on the rail (iOS/Android)
   scrubRail.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   scrubRail.setAttribute("role", "slider");
-  scrubRail.setAttribute("aria-label", "Drag to explore quarters");
+  scrubRail.setAttribute("tabindex", "0");
+  scrubRail.setAttribute("aria-label", "Quarter");
   scrubRail.setAttribute("aria-valuemin", "0");
   scrubRail.setAttribute("aria-valuemax", String(n - 1));
-  scrubRail.setAttribute("aria-valuenow", String(scrubIdx));
+  setScrubAria(scrubIdx);
+  // Keyboard: arrows step a quarter, Home/End jump to the ends
+  scrubRail.addEventListener("keydown", (e) => {
+    const steps = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
+    let i;
+    if (e.key in steps) i = committedScrub + steps[e.key];
+    else if (e.key === "Home") i = 0;
+    else if (e.key === "End") i = n - 1;
+    else return;
+    e.preventDefault();
+    i = Math.max(0, Math.min(n - 1, i));
+    applyScrubberAt(i, { animate: true, popup: !!(calloutCopy[i] && quarterHasActive(i)) });
+    setScrubAria(i);
+  });
 
   scrubHandleHit.addEventListener("pointerenter", (e) => {
     if (e.pointerType === "touch" || dragging) return;
@@ -2111,6 +2167,7 @@ function drawChart2(root) {
       role: "button",
       tabindex: "0",
       "aria-pressed": "true",
+      "aria-label": "Credit acceptance rate",
     });
     legendAccept.appendChild(
       svgEl("circle", { cx: legendLCx, cy: row1Y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
@@ -2150,6 +2207,7 @@ function drawChart2(root) {
       role: "button",
       tabindex: "0",
       "aria-pressed": "true",
+      "aria-label": "Credit application rate",
     });
     legendApply.appendChild(
       svgEl("circle", { cx: legendLCx, cy: row2Y, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
@@ -2193,6 +2251,7 @@ function drawChart2(root) {
       role: "button",
       tabindex: "0",
       "aria-pressed": "true",
+      "aria-label": "Credit acceptance rate",
     });
     legendAccept.appendChild(
       svgEl("circle", { cx: legendLCx, cy: legendCy, r: 8, fill: "#fff", filter: "url(#dot-shadow-2)" })
@@ -2231,6 +2290,7 @@ function drawChart2(root) {
       role: "button",
       tabindex: "0",
       "aria-pressed": "true",
+      "aria-label": "Credit application rate",
     });
     const lb = svgEl("text", {
       x: plotR,
@@ -2288,7 +2348,7 @@ function drawChart2(root) {
         if (e.pointerType === "touch" || dragging || !seriesOn[key]) return;
         if (i !== committedScrub) {
           applyScrubberAt(i, { animate: true, popup: false });
-          scrubRail.setAttribute("aria-valuenow", String(i));
+          setScrubAria(i);
         }
         enterPopupHover(i, cxAt(i));
       });

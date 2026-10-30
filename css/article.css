@@ -1582,6 +1582,29 @@ html:not(.no-animate) .read-more.anim-rise-block:not(.is-shown) {
   outline: none;
 }
 
+/* Keyboard focus rings (mouse and touch focus stay unstyled) */
+.hotspot:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.scrub-rail:focus {
+  outline: none;
+}
+
+.ann-hotspot:focus-visible > rect,
+.chart-legend:focus-visible > rect {
+  stroke: var(--purple);
+  stroke-width: 2;
+}
+
+/* The rail is a wide invisible strip, so ring the handle instead */
+.scrub-rail:focus-visible ~ .chart-scrubber-handle > circle:first-child {
+  stroke: var(--purple);
+  stroke-width: 3;
+}
+
 .series,
 .series-axis {
   transition: opacity 0.4s ease;
