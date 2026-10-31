@@ -2,6 +2,12 @@
 <html lang="en-GB" class="no-animate">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Paths are relative, so the article must be opened as /folder/ (with the trailing slash), not /folder.
+    if (!/(\/|\.html?)$/.test(location.pathname)) {
+      location.replace(location.pathname + "/" + location.search + location.hash);
+    }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Designing Credit for a World That Doesn’t Stabilise</title>
   <meta

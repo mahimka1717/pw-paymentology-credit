@@ -80,6 +80,12 @@ cwebp -q 80 -m 6 -sharp_yuv -resize 1200 0 src-img/g3.png -o public/img/g3-1200.
 
 Graphic-0 and graphic-3 come in 800, 1200, 1800 and 2400 px widths. On mobile the graphic-3 photo is about 1.85× the viewport width, which is why its `sizes` is `(max-width: 860px) 185vw, 1250px`.
 
+## Hosting on the hub
+
+Copy the **contents** of `dist/` into any folder on the server, for example `/credit-article/`. All paths in the page are relative (`css/…`, `js/…`, `public/…`), so the article runs from the domain root or from any folder. Tested from a sub-folder on desktop and mobile: no missing files and no script errors.
+
+The page must be opened with the trailing slash: `/credit-article/`, not `/credit-article`. Without it, relative paths point one level too high and styles, scripts and images fail to load. A script at the top of `<head>` redirects to the address with the slash, keeping the query and hash, but the browser may already have requested a file from the wrong place by then. **Set up a server-side redirect** from `/credit-article` to `/credit-article/` so this never happens.
+
 ## Deployment
 
 The Vercel project builds every push to `main` as a production deployment, running `npm run build` and serving `dist/`.
